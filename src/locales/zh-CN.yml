@@ -1,0 +1,6 @@
+commands:
+  debug:
+    messages:
+        debug-on: 已开启调试模式
+        debug-off: 已关闭调试模式
+        debug-status: 当前的调试状态为{0}
