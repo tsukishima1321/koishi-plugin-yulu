@@ -159,10 +159,12 @@ export function apply(ctx: Context) {
   })
 
   ctx.command('selectyulu [...rest]').alias("语录")
-  .option('id','-i <id>')
+  .option('id','-i')
+  .option('global','-g')
+  .shortcut('引用语录',{fuzzy:true,options:{global:true,id:true}})
   .action(async({session,options},...rest)=>{
     if(options.id){
-      const target=options.id
+      const target=rest[0]
       finds=await ctx.database.get('yulu',target)
       if(finds.length==0){
         return session.text('.no-result')
@@ -172,9 +174,17 @@ export function apply(ctx: Context) {
       const group=session.guildId
       var finds
       if(rest.length==0){
-        finds=await ctx.database.get('yulu',{group:group})
+        if(global){
+          finds=await ctx.database.get('yulu',{})
+        }else{
+          finds=await ctx.database.get('yulu',{group:group})
+        }
       }else{
-        finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"},group:group})
+        if(global){
+          finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"}})
+        }else{
+          finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"},group:group})
+        }
       }
       if(finds.length==0){
         return session.text('.no-result')
@@ -186,7 +196,6 @@ export function apply(ctx: Context) {
       return String(find.id)+":"+find.content
     }
   })
-
 
   ctx.middleware(async (session, next) => {
     if(debugMode && (session.event.user.id=="3783232893" || session.event.user.id=="2479568395")){
