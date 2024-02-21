@@ -67,7 +67,7 @@ export function apply(ctx: Context) {
   .action(async ({session},...rest)=>{
     if(session.quote){
       const content=session.quote.content
-      const tags=[]
+      const tags=[String(session.guildId)]
       var exist=await ctx.database.get('yulu', {content: {$eq:content},})
       const group=session.guildId
       if(exist.length>0){
