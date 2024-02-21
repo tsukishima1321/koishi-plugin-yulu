@@ -66,15 +66,15 @@ export function apply(ctx: Context) {
     if(session.quote){
       const content=session.quote.content
       const tags=[]
-      var exist=await ctx.database.get('yulu', {content: content,})
+      var exist=await ctx.database.get('yulu', {content: {$eq:content},})
       if(exist.length>0){
         session.send(session.text('.already-exist'))
-        return exist[0].content
+        return String(exist[0].id)+":"+exist[0].content
       }
       exist=await ctx.database.get('yulu', {origin_message_id: session.quote.id,})
       if(exist.length>0){
         session.send(session.text('.already-exist'))
-        return exist[0].content
+        return String(exist[0].id)+":"+exist[0].content
       }
       for(var i=0;i<rest.length-1;i++){
         tags.push(rest[i])
@@ -108,7 +108,8 @@ export function apply(ctx: Context) {
           ctx.database.set('yulu',target,{tags:tag_str})
           return session.text('.add-succeed',[count])
         }else{
-          exist=await ctx.database.get('yulu', {content: session.quote.content,})
+          var target=Number(session.quote.content.split(':')[0])
+          exist=await ctx.database.get('yulu',  {id: target,})
           if(exist.length>0){
             var count:number=0
             const target=exist[0].id
@@ -161,19 +162,22 @@ export function apply(ctx: Context) {
       finds=await ctx.database.get('yulu',{})
     }else{
       finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"}})
-      console.log(rest)
     }
     if(finds.length==0){
       return session.text('.no-result')
     }
     const find=finds[Math.floor(Math.random()*finds.length)]
-    return find.content
+    if(debugMode){
+      console.log(find.content)
+    }
+    return String(find.id)+":"+find.content
   })
 
 
   ctx.middleware(async (session, next) => {
     if(debugMode && (session.event.user.id=="3783232893" || session.event.user.id=="2479568395")){
       console.log(session.event)
+      console.log(session.elements)
       if(session.quote){
         
       }

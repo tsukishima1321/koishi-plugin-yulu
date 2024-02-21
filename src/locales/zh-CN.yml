@@ -4,3 +4,24 @@ commands:
         debug-on: 已开启调试模式
         debug-off: 已关闭调试模式
         debug-status: 当前的调试状态为{0}
+  yulu_add:
+    messages:
+        already-exist: 该语录已存在
+        add-succeed: 添加成功
+        no-mes-quoted: 请引用要添加的语录
+  addtag:
+    messages:
+        no-tag-to-add: 未输入要添加的tag
+        add-succeed: 成功添加{0}个tag
+        not-found: 没有找到语录
+        no-mes-quoted: 请引用要添加tag的语录
+  removetag:
+    messages:
+        no-tag-to-remove: 未输入要移除的tag
+  removeyulu:
+    messages:
+        no-permission-to-remove: 没有权限移除语录
+        no-mes-quoted: 请引用要移除的语录
+  selectyulu:
+    messages:
+        no-result: 没有找到语录
