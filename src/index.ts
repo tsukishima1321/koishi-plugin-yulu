@@ -172,18 +172,19 @@ export function apply(ctx: Context) {
       return String(finds[0].id)+":"+finds[0].content
     }else{
       const group=session.guildId
+      console.log(session.guildId)
       var finds
       if(rest.length==0){
-        if(global){
+        if(options.global){
           finds=await ctx.database.get('yulu',{})
         }else{
-          finds=await ctx.database.get('yulu',{group:group})
+          finds=await ctx.database.get('yulu',{group:{$eq:group}})
         }
       }else{
-        if(global){
+        if(options.global){
           finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"}})
         }else{
-          finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"},group:group})
+          finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"},group:{$eq:group}})
         }
       }
       if(finds.length==0){
