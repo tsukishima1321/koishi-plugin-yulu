@@ -161,7 +161,7 @@ export function apply(ctx: Context) {
   ctx.command('selectyulu [...rest]').alias("语录")
   .option('id','-i')
   .option('global','-g')
-  .shortcut('引用语录',{fuzzy:true,options:{global:true,id:true}})
+  .shortcut('引用语录',{fuzzy:true,options:{global:true}})
   .action(async({session,options},...rest)=>{
     if(options.id){
       const target=rest[0]
