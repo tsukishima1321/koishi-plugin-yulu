@@ -32,6 +32,7 @@ export interface Yulu {
   time: Date
   origin_message_id: string
   tags: string
+  group: string
 }
 
 
@@ -43,6 +44,7 @@ export function apply(ctx: Context) {
     time: 'timestamp',
     origin_message_id: 'string',
     tags: 'text',
+    group: 'string'
   },{autoInc:true})
   var debugMode = false
   ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
@@ -67,6 +69,7 @@ export function apply(ctx: Context) {
       const content=session.quote.content
       const tags=[]
       var exist=await ctx.database.get('yulu', {content: {$eq:content},})
+      const group=session.guildId
       if(exist.length>0){
         session.send(session.text('.already-exist'))
         return String(exist[0].id)+":"+exist[0].content
@@ -80,7 +83,7 @@ export function apply(ctx: Context) {
         tags.push(rest[i])
       }
       const tag_str=JSON.stringify(tags)
-      ctx.database.create('yulu',{content:content,time:new Date(),origin_message_id:session.quote.id,tags:tag_str})
+      ctx.database.create('yulu',{content:content,time:new Date(),origin_message_id:session.quote.id,group:group,tags:tag_str})
       return session.text('.add-succeed')
     }else{
       return session.text('.no-mes-quoted')
@@ -156,21 +159,32 @@ export function apply(ctx: Context) {
   })
 
   ctx.command('selectyulu [...rest]').alias("语录")
-  .action(async({session},...rest)=>{
-    var finds
-    if(rest.length==0){
-      finds=await ctx.database.get('yulu',{})
+  .option('id','-i <id>')
+  .action(async({session,options},...rest)=>{
+    if(options.id){
+      const target=options.id
+      finds=await ctx.database.get('yulu',target)
+      if(finds.length==0){
+        return session.text('.no-result')
+      }
+      return String(finds[0].id)+":"+finds[0].content
     }else{
-      finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"}})
+      const group=session.guildId
+      var finds
+      if(rest.length==0){
+        finds=await ctx.database.get('yulu',{group:group})
+      }else{
+        finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"},group:group})
+      }
+      if(finds.length==0){
+        return session.text('.no-result')
+      }
+      const find=finds[Math.floor(Math.random()*finds.length)]
+      if(debugMode){
+        console.log(find.content)
+      }
+      return String(find.id)+":"+find.content
     }
-    if(finds.length==0){
-      return session.text('.no-result')
-    }
-    const find=finds[Math.floor(Math.random()*finds.length)]
-    if(debugMode){
-      console.log(find.content)
-    }
-    return String(find.id)+":"+find.content
   })
 
 
