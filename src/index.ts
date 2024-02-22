@@ -72,22 +72,7 @@ export function apply(ctx: Context,cfg: Config) {
     tags: 'text',
     group: 'string'
   },{autoInc:true})
-  var debugMode = false
   ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
-  ctx.command('debug')
-  .option('on','-d')
-  .option('off','-o')
-  .action( ({ options,session })=> {
-    if(options.on==true){
-      debugMode=true
-      return session.text('.debug-on')
-    }
-    if(options.off==true){
-      debugMode=false
-      return session.text('.debug-off')
-    }
-    return session.text('.debug-status',[debugMode])
-  })
 
   ctx.command('yulu_add [...rest]').alias("添加语录")
   .action(async ({session},...rest)=>{
@@ -226,16 +211,6 @@ export function apply(ctx: Context,cfg: Config) {
       }
       const find=finds[Math.floor(Math.random()*finds.length)]
       return sendYulu(find,cfg.dataDir)
-    }
-  })
-
-  ctx.middleware(async (session, next) => {
-    if(debugMode && (session.event.user.id=="3783232893" || session.event.user.id=="2479568395")){
-      console.log(session.event)
-      console.log(session.elements)
-      return next()
-    }else{
-      return next()
     }
   })
 }

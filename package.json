@@ -22,7 +22,8 @@
     "plugin"
   ],
   "peerDependencies": {
-    "koishi": "^4.16.2"
+    "koishi": "^4.16.2",
+    "request": "*"
   },
   "koishi": {
     "service": {
