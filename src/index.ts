@@ -1,3 +1,4 @@
+import { Session } from 'inspector';
 import { Context, Schema,h,Time} from 'koishi'
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url'
@@ -78,6 +79,15 @@ export function apply(ctx: Context,cfg: Config) {
     group: 'string'
   },{autoInc:true})
   ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
+
+  try {
+    if (!fs.existsSync(cfg.dataDir)) {
+      fs.mkdirSync(cfg.dataDir)
+    }
+  } catch (err) {
+    console.error(err)
+    console.error("请检查文件权限")
+  }
 
   ctx.command('yulu_add [...rest]').alias("添加语录")
   .action(async ({session},...rest)=>{
