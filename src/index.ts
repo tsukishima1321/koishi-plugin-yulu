@@ -53,13 +53,18 @@ export interface Yulu {
 }
 
 
-function sendYulu(y:Yulu,p:string){
+function sendYulu(y:Yulu,p:string,t:boolean): string{
+  var res:string=String(y.id)+":"
+  if(t){
+    res=res+y.tags
+  }
   if(y.content=="img"){
     const href=pathToFileURL(join(resolve(p),String(y.id))).href
-    return String(y.id)+":"+`<img src="${href}">`
+    res=res+`<img src="${href}">`
   }else{
-    return String(y.id)+":"+y.content
+    res=res+y.content
   }
+  return res
 }
 
 
@@ -79,19 +84,22 @@ export function apply(ctx: Context,cfg: Config) {
     if(session.quote){
       const content=session.quote.content
       const tags=[]
+      var group
       if(session.guildId){
         tags.push(String(session.guildId))
+        group=session.guildId
+      }else{
+        group=session.userId
       }
       var exist=await ctx.database.get('yulu', {content: {$eq:content},})//搜索是否存在内容相同的语录（涉及到图片时有bug,明明数据库内容完全一致但还是重复，难道是太长了？）
-      const group=session.guildId
       if(exist.length>0){
         session.send(session.text('.already-exist'))
-        return sendYulu(exist[0],cfg.dataDir)
+        return sendYulu(exist[0],cfg.dataDir,true)
       }
       exist=await ctx.database.get('yulu', {origin_message_id: session.quote.id,})//根据消息id搜索是否存在相同的语录，即判断该条消息是否已经被添加过
       if(exist.length>0){
         session.send(session.text('.already-exist'))
-        return sendYulu(exist[0],cfg.dataDir)
+        return sendYulu(exist[0],cfg.dataDir,true)
       }
       for(var i=0;i<rest.length-1;i++){//由于rest会把引用的内容也加入 这里要-1 感觉可能出bug
         tags.push(rest[i])
@@ -189,9 +197,14 @@ export function apply(ctx: Context,cfg: Config) {
       if(finds.length==0){
         return session.text('.no-result')
       }
-      return sendYulu(finds[0],cfg.dataDir)
+      return sendYulu(finds[0],cfg.dataDir,options.tag)
     }else{
-      const group=session.guildId
+      var group
+      if(session.guildId){
+        group=session.guildId
+      }else{
+        group=session.userId
+      }
       var finds
       if(rest.length==0){
         if(options.global){
@@ -210,7 +223,7 @@ export function apply(ctx: Context,cfg: Config) {
         return session.text('.no-result')
       }
       const find=finds[Math.floor(Math.random()*finds.length)]
-      return sendYulu(find,cfg.dataDir)
+      return sendYulu(find,cfg.dataDir,options.tag)
     }
   })
 }
