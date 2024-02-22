@@ -69,6 +69,7 @@ export function apply(ctx: Context,cfg: Config) {
     tags: 'text',
     group: 'string'
   },{autoInc:true})
+
   ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
 
   try {
