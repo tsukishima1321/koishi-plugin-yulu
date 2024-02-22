@@ -1,21 +1,38 @@
 import { Context, Schema,h,Time} from 'koishi'
+import { join, resolve } from 'path';
 import { pathToFileURL } from 'url'
-import { resolve, join } from 'path'
+let fs = require("fs");
+let path = require("path");
+let request = require("request");
+
+function getfileByUrl(url,fileName,dir){
+  let stream = fs.createWriteStream(path.join(dir, fileName));
+  request(url).pipe(stream).on("close", function (err) {
+      console.log("语录" + fileName + "下载完毕");
+  });
+}
 
 export const name = 'yulu'
 
-export interface Config {}
+export interface Config {
+  dataDir:string
+  adminUsers: {
+    uid: string
+    note?: string
+  }[]
+}
 
 export const inject = { 
-  required: ['database',], 
-  optional: ['assets','blockly'], 
+  required: ['database'], 
+  optional: [], 
 } 
 
 export const Config: Schema<Config> = Schema.object({
-  excludeUsers: Schema.array(Schema.object({
+  adminUsers: Schema.array(Schema.object({
     uid: Schema.string().required(),
     note: Schema.string()
-  })).default([{ uid: 'red:2854196310', note: 'Q群管家' }])
+  })).default([{ uid: 'red:2854196310', note: '' }]),
+  dataDir: Schema.string().default("./data/yulu")
 }).i18n({
   'zh-CN': require('./locales/zh-CN'),
 })
@@ -36,8 +53,17 @@ export interface Yulu {
 }
 
 
+function sendYulu(y:Yulu,p:string){
+  if(y.content=="img"){
+    const href=pathToFileURL(join(resolve(p),String(y.id))).href
+    return String(y.id)+":"+`<img src="${href}">`
+  }else{
+    return String(y.id)+":"+y.content
+  }
+}
 
-export function apply(ctx: Context) {
+
+export function apply(ctx: Context,cfg: Config) {
   ctx.model.extend('yulu', {
     id: 'unsigned',
     content: 'string',
@@ -67,30 +93,38 @@ export function apply(ctx: Context) {
   .action(async ({session},...rest)=>{
     if(session.quote){
       const content=session.quote.content
-      const tags=[String(session.guildId)]
-      var exist=await ctx.database.get('yulu', {content: {$eq:content},})
+      const tags=[]
+      if(session.guildId){
+        tags.push(String(session.guildId))
+      }
+      var exist=await ctx.database.get('yulu', {content: {$eq:content},})//搜索是否存在内容相同的语录（涉及到图片时有bug,明明数据库内容完全一致但还是重复，难道是太长了？）
       const group=session.guildId
       if(exist.length>0){
         session.send(session.text('.already-exist'))
-        return String(exist[0].id)+":"+exist[0].content
+        return sendYulu(exist[0],cfg.dataDir)
       }
-      exist=await ctx.database.get('yulu', {origin_message_id: session.quote.id,})
+      exist=await ctx.database.get('yulu', {origin_message_id: session.quote.id,})//根据消息id搜索是否存在相同的语录，即判断该条消息是否已经被添加过
       if(exist.length>0){
         session.send(session.text('.already-exist'))
-        return String(exist[0].id)+":"+exist[0].content
+        return sendYulu(exist[0],cfg.dataDir)
       }
-      for(var i=0;i<rest.length-1;i++){
+      for(var i=0;i<rest.length-1;i++){//由于rest会把引用的内容也加入 这里要-1 感觉可能出bug
         tags.push(rest[i])
       }
       const tag_str=JSON.stringify(tags)
-      ctx.database.create('yulu',{content:content,time:new Date(),origin_message_id:session.quote.id,group:group,tags:tag_str})
+      var result=await ctx.database.create('yulu',{content:content,time:new Date(),origin_message_id:session.quote.id,group:group,tags:tag_str})
+      if(session.quote.elements[0].type=="img"){//语录为图片
+        getfileByUrl(session.quote.elements[0].attrs.src,String(result.id),cfg.dataDir)//下载图片到本地路径
+        const local=pathToFileURL(join(resolve(cfg.dataDir),String(result.id)))
+        await ctx.database.set('yulu', result.id, {content: "img"})//替换数据库中的内容为图片标识，发送时根据id查找图片文件
+      }
       return session.text('.add-succeed')
     }else{
       return session.text('.no-mes-quoted')
     }
   })
   
-  ctx.command('addtag [...rest]')
+  ctx.command('yulu_tag_add [...rest]').alias("addtag")
   .action(async ({session},...rest)=>{
     if(rest.length<=1){
       return session.text('.no-tag-to-add')
@@ -136,7 +170,7 @@ export function apply(ctx: Context) {
     }
   })
 
-  ctx.command('removetag [...rest]')
+  ctx.command('yulu_tag_removeg [...rest]').alias("rmtag")
   .action(({session},...rest)=>{
     if(rest.length===0){
       return session.text('.no-tag-to-remove')
@@ -145,7 +179,7 @@ export function apply(ctx: Context) {
     }
   })
 
-  ctx.command('removeyulu [...rest]').alias("删除语录")
+  ctx.command('yulu_remove [...rest]').alias("删除语录")
   .action(({session},...rest)=>{
     if(session.quote && session.quote.elements[0].type=="img"){
       if(0){/*发送者没有权限*/
@@ -158,9 +192,10 @@ export function apply(ctx: Context) {
     }
   })
 
-  ctx.command('selectyulu [...rest]').alias("语录")
+  ctx.command('yulu_select [...rest]').alias("语录")
   .option('id','-i')
   .option('global','-g')
+  .option('tag','-t')
   .shortcut('引用语录',{fuzzy:true,options:{global:true}})
   .action(async({session,options},...rest)=>{
     if(options.id){
@@ -169,10 +204,9 @@ export function apply(ctx: Context) {
       if(finds.length==0){
         return session.text('.no-result')
       }
-      return String(finds[0].id)+":"+finds[0].content
+      return sendYulu(finds[0],cfg.dataDir)
     }else{
       const group=session.guildId
-      console.log(session.guildId)
       var finds
       if(rest.length==0){
         if(options.global){
@@ -191,10 +225,7 @@ export function apply(ctx: Context) {
         return session.text('.no-result')
       }
       const find=finds[Math.floor(Math.random()*finds.length)]
-      if(debugMode){
-        console.log(find.content)
-      }
-      return String(find.id)+":"+find.content
+      return sendYulu(find,cfg.dataDir)
     }
   })
 
@@ -202,9 +233,6 @@ export function apply(ctx: Context) {
     if(debugMode && (session.event.user.id=="3783232893" || session.event.user.id=="2479568395")){
       console.log(session.event)
       console.log(session.elements)
-      if(session.quote){
-        
-      }
       return next()
     }else{
       return next()

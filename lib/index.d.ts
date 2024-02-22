@@ -1,10 +1,15 @@
 import { Context, Schema } from 'koishi';
 export declare const name = "yulu";
 export interface Config {
+    dataDir: string;
+    adminUsers: {
+        uid: string;
+        note?: string;
+    }[];
 }
 export declare const inject: {
     required: string[];
-    optional: string[];
+    optional: any[];
 };
 export declare const Config: Schema<Config>;
 declare module 'koishi' {
@@ -20,4 +25,4 @@ export interface Yulu {
     tags: string;
     group: string;
 }
-export declare function apply(ctx: Context): void;
+export declare function apply(ctx: Context, cfg: Config): void;

@@ -1,3 +1,12 @@
+adminUsers:
+  $description: 管理员用户
+  $value:
+    uid: 群组平台与用户 ID, 格式:`platform:userId`
+    note: 备注 (可不填此项)
+
+dataDir:
+  $description: 保存图片语录文件的路径
+
 commands:
   debug:
     messages:
@@ -9,19 +18,19 @@ commands:
         already-exist: 该语录已存在
         add-succeed: 添加成功
         no-mes-quoted: 请引用要添加的语录
-  addtag:
+  yulu_tag_add:
     messages:
         no-tag-to-add: 未输入要添加的tag
         add-succeed: 成功添加{0}个tag
         not-found: 没有找到语录
         no-mes-quoted: 请引用要添加tag的语录
-  removetag:
+  yulu_tag_remove:
     messages:
         no-tag-to-remove: 未输入要移除的tag
-  removeyulu:
+  yulu_remove:
     messages:
         no-permission-to-remove: 没有权限移除语录
         no-mes-quoted: 请引用要移除的语录
-  selectyulu:
+  yulu_select:
     messages:
         no-result: 没有找到语录

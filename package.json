@@ -1,17 +1,17 @@
 {
   "name": "koishi-plugin-yulu",
   "description": "适用于koishi的语录插件",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
-"contributors": [
+  "contributors": [
     "tsukishima1321 <18001751830@163.com>"
   ],
-"repository": {                           
+  "repository": {
     "type": "git",
     "url": "git+https://github.com/tsukishima1321/koishi-plugin-yulu"
   },
@@ -24,7 +24,7 @@
   "peerDependencies": {
     "koishi": "^4.16.2"
   },
-"koishi": {
+  "koishi": {
     "service": {
       "required": [
         "database"
