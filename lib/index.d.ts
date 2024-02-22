@@ -2,10 +2,7 @@ import { Context, Schema } from 'koishi';
 export declare const name = "yulu";
 export interface Config {
     dataDir: string;
-    adminUsers: {
-        uid: string;
-        note?: string;
-    }[];
+    adminUsers: string[];
 }
 export declare const inject: {
     required: string[];

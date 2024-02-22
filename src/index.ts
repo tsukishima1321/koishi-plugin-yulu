@@ -1,13 +1,11 @@
-import { Session } from 'inspector';
-import { Context, Schema,h,Time} from 'koishi'
+import { Context, Schema} from 'koishi'
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url'
 let fs = require("fs");
-let path = require("path");
 let request = require("request");
 
 function getfileByUrl(url,fileName,dir){
-  let stream = fs.createWriteStream(path.join(dir, fileName));
+  let stream = fs.createWriteStream(join(dir, fileName));
   request(url).pipe(stream).on("close", function (err) {
       console.log("语录" + fileName + "下载完毕");
   });
@@ -17,10 +15,7 @@ export const name = 'yulu'
 
 export interface Config {
   dataDir:string
-  adminUsers: {
-    uid: string
-    note?: string
-  }[]
+  adminUsers: string[]
 }
 
 export const inject = { 
@@ -29,10 +24,7 @@ export const inject = {
 } 
 
 export const Config: Schema<Config> = Schema.object({
-  adminUsers: Schema.array(Schema.object({
-    uid: Schema.string().required(),
-    note: Schema.string()
-  })).default([{ uid: 'red:2854196310', note: '' }]),
+  adminUsers: Schema.array(Schema.string()).default(['2854196310']),
   dataDir: Schema.string().default("./data/yulu")
 }).i18n({
   'zh-CN': require('./locales/zh-CN'),
@@ -52,7 +44,6 @@ export interface Yulu {
   tags: string
   group: string
 }
-
 
 function sendYulu(y:Yulu,p:string,t:boolean): string{
   var res:string=String(y.id)+":"
@@ -89,7 +80,7 @@ export function apply(ctx: Context,cfg: Config) {
     console.error("请检查文件权限")
   }
 
-  ctx.command('yulu_add [...rest]').alias("添加语录")
+  ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
   .action(async ({session},...rest)=>{
     if(session.quote){
       const content=session.quote.content
@@ -127,14 +118,14 @@ export function apply(ctx: Context,cfg: Config) {
     }
   })
   
-  ctx.command('yulu_tag_add [...rest]').alias("addtag")
+  ctx.command('yulu/yulu_tag_add [...rest]').alias("addtag")
   .action(async ({session},...rest)=>{
     if(rest.length<=1){
       return session.text('.no-tag-to-add')
     }else{
       if(session.quote){
         var exist=await ctx.database.get('yulu', {origin_message_id: session.quote.id,})
-        if(exist.length>0){
+        if(exist.length>0){//如果引用的是语录的原始消息
           var count:number=0
           const target=exist[0].id
           var tags=JSON.parse(exist[0].tags)
@@ -147,7 +138,7 @@ export function apply(ctx: Context,cfg: Config) {
           const tag_str=JSON.stringify(tags)
           ctx.database.set('yulu',target,{tags:tag_str})
           return session.text('.add-succeed',[count])
-        }else{
+        }else{//解析消息获得id来定位语录
           var target=Number(session.quote.content.split(':')[0])
           exist=await ctx.database.get('yulu',  {id: target,})
           if(exist.length>0){
@@ -164,7 +155,7 @@ export function apply(ctx: Context,cfg: Config) {
             ctx.database.set('yulu',target,{tags:tag_str})
             return session.text('.add-succeed',[count])
           }else{
-            return session.text('.not-found')
+            return session.text('.not-found',[target])
           }
         }
       }else{
@@ -173,29 +164,58 @@ export function apply(ctx: Context,cfg: Config) {
     }
   })
 
-  ctx.command('yulu_tag_removeg [...rest]').alias("rmtag")
-  .action(({session},...rest)=>{
+  ctx.command('yulu/yulu_tag_remove [...rest]').alias("rmtag")
+  .action(async({session},...rest)=>{
     if(rest.length===0){
       return session.text('.no-tag-to-remove')
     }else{
-      
+      if(session.quote){
+        var target=Number(session.quote.content.split(':')[0])
+        var exist=await ctx.database.get('yulu',  {id: target,})
+        if(exist.length>0){
+          var count:number=0
+          const target=exist[0].id
+          var tags:string[]=JSON.parse(exist[0].tags)
+          tags=tags.filter(tag=>{ //去除tags中所有在rest中的项
+            if(rest.includes(tag)){
+              count++
+              return false
+            }
+            return true
+          })
+          const tag_str=JSON.stringify(tags)
+          ctx.database.set('yulu',target,{tags:tag_str})
+          return session.text('.remove-succeed',[count])
+        }else{
+          return session.text('.not-found',[target])
+        }
+      }else{
+        return session.text('.no-mes-quoted')
+      }
     }
   })
 
-  ctx.command('yulu_remove [...rest]').alias("删除语录")
-  .action(({session},...rest)=>{
-    if(session.quote && session.quote.elements[0].type=="img"){
-      if(0){/*发送者没有权限*/
+  ctx.command('yulu/yulu_remove [...rest]').alias("删除语录")
+  .action(async({session},...rest)=>{
+    if(session.quote){
+      if(!cfg.adminUsers.includes(session.event.user.id)){/*发送者没有权限*/
         return session.text('.no-permission-to-remove')
       }else{
-
+        var target=Number(session.quote.content.split(':')[0])
+        var exist=await ctx.database.get('yulu',  {id: target,})
+        if(exist.length>0){
+          ctx.database.remove('yulu',[target])
+          return session.text('.remove-succeed')
+        }else{
+          return session.text('.not-found',[target])
+        }
       }
     }else{
       return session.text('.no-mes-quoted')
     }
   })
 
-  ctx.command('yulu_select [...rest]').alias("语录")
+  ctx.command('yulu/yulu_select [...rest]').alias("语录")
   .option('id','-i')
   .option('global','-g')
   .option('tag','-t')
