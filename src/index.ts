@@ -202,8 +202,13 @@ export function apply(ctx: Context,cfg: Config) {
       if(!cfg.adminUsers.includes(session.event.user.id)){/*发送者没有权限*/
         return session.text('.no-permission-to-remove')
       }else{
+        var exist=await ctx.database.get('yulu', {origin_message_id: session.quote.id,})
+        if(exist.length>0){//如果引用的是语录的原始消息
+          ctx.database.remove('yulu',[exist[0].id])
+          return session.text('.remove-succeed')
+        }
         var target=Number(session.quote.content.split(':')[0])
-        var exist=await ctx.database.get('yulu',  {id: target,})
+        exist=await ctx.database.get('yulu',  {id: target,})
         if(exist.length>0){
           ctx.database.remove('yulu',[target])
           return session.text('.remove-succeed')
