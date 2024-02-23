@@ -13,7 +13,7 @@ commands:
   yulu_add:
     description: 添加一条语录
     usage: |-
-      引用一条消息作为要添加的语录。图片等非文本消息需要在插件启动后发出的才能被引用，转发的消息可能无法被引用
+      引用一条消息作为要添加的语录，可添加多个tag，用空格隔开。图片等非文本消息需要在插件启动后发出的才能被引用，转发的消息可能无法被引用
     messages:
         already-exist: 语录已存在
         add-succeed: 添加成功
@@ -21,7 +21,7 @@ commands:
   yulu_tag_add:
     description: 为一条语录增加tag
     usage: |-
-      为被引用的语录添加tag，多个tag用空格隔开，返回成功添加的tag数量
+      为被引用的语录添加tag，多个tag用空格隔开，提示成功添加的tag数量
     messages:
         no-tag-to-add: 未输入要添加的tag
         add-succeed: 成功添加{0}个tag
@@ -30,14 +30,15 @@ commands:
   yulu_tag_remove:
     description: 为一条语录移除tag
     usage: |-
-      为被引用的语录移除tag，多个tag用空格隔开，返回成功移除的tag数量
+      为被引用的语录移除tag，多个tag用空格隔开，提示成功移除的tag数量
     messages:
         no-tag-to-remove: 未输入要移除的tag
         remove-succeed: 成功移除{0}个tag
         no-mes-quoted: 请引用要移除tag的语录
         not-found: 没有找到id为{0}的语录
   yulu_remove:
-    description: 移除被引用的语录（需要权限，添加平台用户id到adminUsers中获得）
+    description: 移除被引用的语录
+    usage: 移除被引用的语录（需要权限，添加平台用户id到adminUsers中获得）
     messages:
         no-permission-to-remove: 没有权限移除语录
         no-mes-quoted: 请引用要移除的语录
