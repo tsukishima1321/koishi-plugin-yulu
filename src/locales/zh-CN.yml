@@ -47,7 +47,7 @@ commands:
   yulu_select:
     description: 随机获取一条语录
     usage: |-
-      随机获取一条语录，一个参数作为查找的内容
+      随机获取一条语录，参数列表作为要查找的tag
     options:
       id: 直接通过id索引特定语录
       global: 允许选取来自其他群聊的语录

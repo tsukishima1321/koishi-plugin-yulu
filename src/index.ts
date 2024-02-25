@@ -59,7 +59,6 @@ function sendYulu(y:Yulu,p:string,t:boolean): string{
   return res
 }
 
-
 export function apply(ctx: Context,cfg: Config) {
   ctx.model.extend('yulu', {
     id: 'unsigned',
@@ -197,9 +196,9 @@ export function apply(ctx: Context,cfg: Config) {
   })
 
   ctx.command('yulu/yulu_remove [...rest]').alias("删除语录")
-  .action(async({session},...rest)=>{
+  .action(async({session})=>{
     if(session.quote){
-      if(!cfg.adminUsers.includes(session.event.user.id)){/*发送者没有权限*/
+      if(!cfg.adminUsers.includes(session.event.user.id)){
         return session.text('.no-permission-to-remove')
       }else{
         var exist=await ctx.database.get('yulu', {origin_message_id: session.quote.id,})
@@ -222,39 +221,33 @@ export function apply(ctx: Context,cfg: Config) {
   })
 
   ctx.command('yulu/yulu_select [...rest]').alias("语录")
-  .option('id','-i')
+  .option('id','-i <id>')
   .option('global','-g')
   .option('tag','-t')
   .shortcut('引用语录',{fuzzy:true,options:{global:true}})
   .action(async({session,options},...rest)=>{
+    var finds:Yulu[]
     if(options.id){
-      const target=rest[0]
-      finds=await ctx.database.get('yulu',target)
+      finds=await ctx.database.get('yulu',options.id)
       if(finds.length==0){
         return session.text('.no-result')
       }
       return sendYulu(finds[0],cfg.dataDir,options.tag)
     }else{
-      var group
+      var group:string
       if(session.guildId){
         group=session.guildId
       }else{
         group=session.userId
       }
-      var finds
-      if(rest.length==0){
-        if(options.global){
-          finds=await ctx.database.get('yulu',{})
-        }else{
-          finds=await ctx.database.get('yulu',{group:{$eq:group}})
-        }
-      }else{
-        if(options.global){
-          finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"}})
-        }else{
-          finds=await ctx.database.get('yulu',{tags:{$regexFor:"/"+rest[0]+"/"},group:{$eq:group}})
-        }
+      var query=ctx.database.select('yulu')
+      if(!options.global){
+        query.where({group:{$eq:group}})
       }
+      for(var i=0;i<rest.length;i++){
+        query.where({tags:{$regexFor:"/"+rest[i]+"/"}})
+      }
+      finds=await query.execute()
       if(finds.length==0){
         return session.text('.no-result')
       }
