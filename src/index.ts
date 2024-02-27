@@ -139,7 +139,11 @@ export function apply(ctx: Context,cfg: Config) {
           ctx.database.set('yulu',target,{tags:tag_str})
           return session.text('.add-succeed',[count])
         }else{//解析消息获得id来定位语录
-          var target=Number(session.quote.content.split(':')[0])
+          try{
+            var target=Number(session.quote.content.split(':')[0])
+          }catch{
+            return session.text('.no-mes-quoted')
+          }
           exist=await ctx.database.get('yulu',  {id: target,})
           if(exist.length>0){
             var count:number=0
@@ -170,7 +174,11 @@ export function apply(ctx: Context,cfg: Config) {
       return session.text('.no-tag-to-remove')
     }else{
       if(session.quote){
-        var target=Number(session.quote.content.split(':')[0])
+        try{
+          var target=Number(session.quote.content.split(':')[0])
+        }catch{
+          return session.text('.no-mes-quoted')
+        }
         var exist=await ctx.database.get('yulu',  {id: target,})
         if(exist.length>0){
           var count:number=0
@@ -206,7 +214,11 @@ export function apply(ctx: Context,cfg: Config) {
           ctx.database.remove('yulu',[exist[0].id])
           return session.text('.remove-succeed')
         }
-        var target=Number(session.quote.content.split(':')[0])
+        try{
+          var target=Number(session.quote.content.split(':')[0])
+        }catch{
+          return session.text('.no-mes-quoted')
+        }
         exist=await ctx.database.get('yulu',  {id: target,})
         if(exist.length>0){
           ctx.database.remove('yulu',[target])
@@ -245,7 +257,7 @@ export function apply(ctx: Context,cfg: Config) {
         query.where({group:{$eq:group}})
       }
       for(var i=0;i<rest.length;i++){
-        query.where({tags:{$regexFor:"/"+rest[i]+"/"}})
+        query.where({tags:{$regex:rest[i]}})
       }
       finds=await query.execute()
       if(finds.length==0){
