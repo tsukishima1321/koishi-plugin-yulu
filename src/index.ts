@@ -100,6 +100,9 @@ export function apply(ctx: Context, cfg: Config) {
     .option('on', '-d')
     .option('off', '-o')
     .action(({ options, session }) => {
+      if (!cfg.adminUsers.includes(session.event.user.id)) {
+        return session.text('.no-permission')
+      }
       if (options.on == true) {
         debugMode = true
         return session.text('.debug-on')
@@ -279,6 +282,7 @@ export function apply(ctx: Context, cfg: Config) {
     .option('id', '-i <id>')
     .option('global', '-g')
     .option('tag', '-t')
+    .option('list', '-l').option('page', '-p <page>').option('full', '-f')
     .shortcut('引用语录', { fuzzy: true, options: { global: true } })
     .action(async ({ session, options }, ...rest) => {
       var finds: Yulu[]
@@ -306,9 +310,28 @@ export function apply(ctx: Context, cfg: Config) {
         if (finds.length == 0) {
           return session.text('.no-result')
         }
-        const find = finds[Math.floor(Math.random() * finds.length)]
-        const res = sendYulu(find, cfg.dataDir, options.tag)
-        return res
+        if (!options.list) {
+          const find = finds[Math.floor(Math.random() * finds.length)]
+          const res = sendYulu(find, cfg.dataDir, options.tag)
+          return res
+        } else {
+          var page: number
+          if (!options.page) {
+            page = 1
+          } else {
+            page = options.page
+          }
+          var res: string = ""
+          var i = 0;
+          for (i = page * 10 - 10; (i < page * 10 || options.full) && i < finds.length; i++) {
+            const y = finds[i]
+            res += String(y.id) + ":" + y.tags + "\n"
+          }
+          if (i < finds.length) {
+            res += session.text('.rest', [finds.length - i])
+          }
+          return res
+        }
       }
     })
   ctx.command('yulu/yulu_test <id:number>')

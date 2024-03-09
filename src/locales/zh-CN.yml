@@ -10,6 +10,7 @@ commands:
         debug-on: 已开启调试模式
         debug-off: 已关闭调试模式
         debug-status: 当前的调试状态为{0}
+        no-permission: 权限不足
   yulu_add:
     description: 添加一条语录
     usage: |-
@@ -54,3 +55,4 @@ commands:
       tag: 发送语录时同时发送语录的tag
     messages:
         no-result: 没有找到符合条件的语录
+        rest: 剩余{0}条记录，指定-p参数以翻页
