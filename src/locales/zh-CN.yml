@@ -5,7 +5,7 @@ dataDir:
   $description: 保存图片语录文件的路径
 
 commands:
-  debug:
+  yulu_debug:
     messages:
         debug-on: 已开启调试模式
         debug-off: 已关闭调试模式
