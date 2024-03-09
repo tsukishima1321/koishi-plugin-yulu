@@ -3,6 +3,7 @@ export declare const name = "yulu";
 export interface Config {
     dataDir: string;
     adminUsers: string[];
+    pageSize: number;
 }
 export declare const inject: {
     required: string[];

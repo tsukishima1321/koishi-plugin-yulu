@@ -4,6 +4,9 @@ adminUsers:
 dataDir:
   $description: 保存图片语录文件的路径
 
+pageSize:
+  $description: list指令的分页大小
+
 commands:
   yulu_debug:
     messages:

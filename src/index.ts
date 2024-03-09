@@ -41,6 +41,7 @@ export const name = 'yulu'
 export interface Config {
   dataDir: string
   adminUsers: string[]
+  pageSize: number
 }
 
 export const inject = {
@@ -50,7 +51,8 @@ export const inject = {
 
 export const Config: Schema<Config> = Schema.object({
   adminUsers: Schema.array(Schema.string()).default(['2854196310']),
-  dataDir: Schema.string().default("./data/yulu")
+  dataDir: Schema.string().default("./data/yulu"),
+  pageSize: Schema.number().default(10)
 }).i18n({
   'zh-CN': require('./locales/zh-CN'),
 })
@@ -115,6 +117,8 @@ export function apply(ctx: Context, cfg: Config) {
     })
 
   ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
+
+  var pageSize=cfg.pageSize
 
   try {
     if (!fs.existsSync(cfg.dataDir)) {
@@ -279,10 +283,10 @@ export function apply(ctx: Context, cfg: Config) {
     })
 
   ctx.command('yulu/yulu_select [...rest]').alias("语录")
-    .option('id', '-i <id>')
+    .option('id', '-i <id:number>')
     .option('global', '-g')
     .option('tag', '-t')
-    .option('list', '-l').option('page', '-p <page>').option('full', '-f')
+    .option('list', '-l').option('page', '-p <page:number>').option('full', '-f')
     .shortcut('引用语录', { fuzzy: true, options: { global: true } })
     .action(async ({ session, options }, ...rest) => {
       var finds: Yulu[]
@@ -323,7 +327,7 @@ export function apply(ctx: Context, cfg: Config) {
           }
           var res: string = ""
           var i = 0;
-          for (i = page * 10 - 10; (i < page * 10 || options.full) && i < finds.length; i++) {
+          for (i = page * pageSize - pageSize; (i < page * pageSize || options.full) && i < finds.length; i++) {
             const y = finds[i]
             res += String(y.id) + ":" + y.tags + "\n"
           }
