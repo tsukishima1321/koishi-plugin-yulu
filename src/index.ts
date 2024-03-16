@@ -1,19 +1,23 @@
-import { Argv, Context, Schema } from 'koishi'
+import { Session, Context, Schema } from 'koishi'
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url'
 let fs = require("fs");
 let request = require("request");
 
-function getfileByUrl(url, fileName, dir, on_close) {
-  let stream = fs.createWriteStream(join(dir, fileName));
-  request(url).pipe(stream).on("close", (err) => {
-    if (err) {
-      console.error(err);
-    } else {
-      console.log("语录" + fileName + "下载完毕");
-      on_close(fileName)
-    }
-  });
+async function getfileByUrl(url, fileName, dir) {
+  var res = new Promise((resolve, reject) => {
+    let stream = fs.createWriteStream(join(dir, fileName));
+    request(url).pipe(stream).on("close", (err) => {
+      if (err) {
+        console.error(err);
+        reject(err)
+      } else {
+        console.log("语录" + fileName + "下载完毕");
+        resolve(true)
+      }
+    });
+  })
+  return res
 }
 
 export const name = 'yulu'
@@ -109,7 +113,7 @@ export function apply(ctx: Context, cfg: Config) {
     console.error("请检查文件权限")
   }
 
-  var yuluTest = ctx.command('yulu/yulu_test')
+  /*var yuluTest = ctx.command('yulu/yulu_test')
     .option('id', '-i <id:number>')
     .action(async ({ session, options }) => {
       fs.stat(join(cfg.dataDir, String(options.id)), (err, stats) => {
@@ -125,18 +129,45 @@ export function apply(ctx: Context, cfg: Config) {
           }
         }
       });
+    })*/
+  async function checkFile(id: number, session: Session) {
+    var res = await new Promise((resolve, reject) => {
+      fs.stat(join(cfg.dataDir, String(id)), (err, stats) => {
+        if (err) {
+          console.error(err)
+          reject(err)
+        } else {
+          if (stats.size < 100) {
+            session.send(session.text('.download-failed', [id]))
+            session.execute(`yulu_select -i ${id} -l`)
+            setTimeout(() => {
+              ctx.database.remove('yulu', [id])
+              session.send(session.text('.delete-finish', [id]))
+            }, 1000)
+            resolve(false)
+          } else {
+            resolve(true)
+          }
+        }
+      })
     })
+    return res
+  }
 
   var yuluRemove = ctx.command('yulu/yulu_remove [...rest]').alias("删除语录")
     .option('id', '-i <id:number>')
     .action(async ({ session, options }) => {
       if (options.id) {
-        const finds = await ctx.database.get('yulu', options.id)
-        if (finds.length == 0) {
-          return session.text('.no-result')
+        if (!cfg.adminUsers.includes(session.event.user.id)) {
+          return session.text('.no-permission-to-remove')
+        } else {
+          const finds = await ctx.database.get('yulu', options.id)
+          if (finds.length == 0) {
+            return session.text('.no-result')
+          }
+          ctx.database.remove('yulu', [options.id])
+          return session.text('.remove-succeed')
         }
-        ctx.database.remove('yulu', [options.id])
-        return session.text('.remove-succeed')
       } else {
         if (session.quote) {
           if (!cfg.adminUsers.includes(session.event.user.id)) {
@@ -195,7 +226,10 @@ export function apply(ctx: Context, cfg: Config) {
         var result = await ctx.database.create('yulu', { content: content, time: new Date(), origin_message_id: session.quote.id, group: group, tags: tag_str })
         if (session.quote.elements[0].type == "img") {//语录为图片
           if (debugMode) { console.log(String(session.quote.elements[0].attrs.src)) }
-          getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir, (id) => { session.execute(`yulu_test -i ${id}`) })//下载图片到本地路径
+          await getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir)//下载图片到本地路径
+          if (!await checkFile(result.id, session)) {//语录文件下载失败
+            return
+          }
           await ctx.database.set('yulu', result.id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件
         }
         return session.text('.add-succeed')
@@ -307,7 +341,9 @@ export function apply(ctx: Context, cfg: Config) {
           var res = String(y.id) + ":" + y.tags + "\n"
           return res
         } else {
-          session.execute(`yulu_test -i ${options.id}`)
+          if (!await checkFile(options.id, session)) {//语录文件下载失败
+            return
+          }
           return sendYulu(y, cfg.dataDir, options.tag)
         }
       } else {
@@ -330,7 +366,9 @@ export function apply(ctx: Context, cfg: Config) {
         }
         if (!options.list) {
           const find = finds[Math.floor(Math.random() * finds.length)]
-          session.execute(`yulu_test -i ${find.id}`)
+          if (!await checkFile(find.id, session)) {//语录文件下载失败
+            return
+          }
           const res = sendYulu(find, cfg.dataDir, options.tag)
           return res
         } else {
