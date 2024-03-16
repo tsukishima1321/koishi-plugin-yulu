@@ -14,6 +14,9 @@ commands:
         debug-off: 已关闭调试模式
         debug-status: 当前的调试状态为{0}
         no-permission: 权限不足
+  yulu_test:
+    messages:
+        download-failed: 文件{0}存在错误，正在删除语录
   yulu_add:
     description: 添加一条语录
     usage: |-
@@ -22,6 +25,7 @@ commands:
         already-exist: 语录已存在
         add-succeed: 添加成功
         no-mes-quoted: 请引用要添加的语录
+        download-failed: 语录{0}下载失败，正在移除
   yulu_tag_add:
     description: 为一条语录增加tag
     usage: |-
@@ -62,3 +66,4 @@ commands:
     messages:
         no-result: 没有找到符合条件的语录
         rest: 剩余{0}条记录，指定-p参数以翻页
+        download-failed: 文件{0}存在错误，正在删除语录

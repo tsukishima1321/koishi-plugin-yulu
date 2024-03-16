@@ -1,38 +1,18 @@
-import { Context, Schema } from 'koishi'
+import { Argv, Context, Schema } from 'koishi'
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url'
 let fs = require("fs");
 let request = require("request");
 
-var failedTime: number = 0
-
-function getfileByUrl(url, fileName, dir) {
+function getfileByUrl(url, fileName, dir, on_close) {
   let stream = fs.createWriteStream(join(dir, fileName));
-  request(url).pipe(stream).on("close", function (err) {
-    console.log("语录" + fileName + "下载完毕");
-    /*fs.readFile(join(dir, fileName), 'utf8', (err, data) => {
-      if (err) {
-        failedTime=0;
-        console.error(err);
-        return;
-      }
-      if(data=="Internal Server Error"){
-        failedTime++
-        if(failedTime>10){
-          console.log("重试次数已达上限，下载失败")
-          return
-        }else{
-          console.log("while downloading:"+String(url))
-          console.log(`Internal Server Error，第${failedTime}次重试`)
-          setTimeout(function(){
-            getfileByUrl(url,fileName,dir)
-            },2000)
-        }
-      }else{
-        failedTime=0;
-        console.log("语录" + fileName + "下载成功");
-      }
-    });*/
+  request(url).pipe(stream).on("close", (err) => {
+    if (err) {
+      console.error(err);
+    } else {
+      console.log("语录" + fileName + "下载完毕");
+      on_close(fileName)
+    }
   });
 }
 
@@ -118,7 +98,7 @@ export function apply(ctx: Context, cfg: Config) {
 
   ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
 
-  var pageSize=cfg.pageSize
+  var pageSize = cfg.pageSize
 
   try {
     if (!fs.existsSync(cfg.dataDir)) {
@@ -129,7 +109,64 @@ export function apply(ctx: Context, cfg: Config) {
     console.error("请检查文件权限")
   }
 
-  ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
+  var yuluTest = ctx.command('yulu/yulu_test')
+    .option('id', '-i <id:number>')
+    .action(async ({ session, options }) => {
+      fs.stat(join(cfg.dataDir, String(options.id)), (err, stats) => {
+        if (err) {
+          console.error(err);
+        } else {
+          if (stats.size < 100) {
+            session.send(session.text('.download-failed', [options.id]))
+            session.execute(`yulu_select -i ${options.id} -l`)
+            setTimeout(() => {
+              session.execute(`yulu_remove -i ${options.id}`)
+            }, 1000);
+          }
+        }
+      });
+    })
+
+  var yuluRemove = ctx.command('yulu/yulu_remove [...rest]').alias("删除语录")
+    .option('id', '-i <id:number>')
+    .action(async ({ session, options }) => {
+      if (options.id) {
+        const finds = await ctx.database.get('yulu', options.id)
+        if (finds.length == 0) {
+          return session.text('.no-result')
+        }
+        ctx.database.remove('yulu', [options.id])
+        return session.text('.remove-succeed')
+      } else {
+        if (session.quote) {
+          if (!cfg.adminUsers.includes(session.event.user.id)) {
+            return session.text('.no-permission-to-remove')
+          } else {
+            var exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })
+            if (exist.length > 0) {//如果引用的是语录的原始消息
+              ctx.database.remove('yulu', [exist[0].id])
+              return session.text('.remove-succeed')
+            }
+            try {
+              var target = Number(session.quote.content.split(':')[0])
+            } catch {
+              return session.text('.no-mes-quoted')
+            }
+            exist = await ctx.database.get('yulu', { id: target, })
+            if (exist.length > 0) {
+              ctx.database.remove('yulu', [target])
+              return session.text('.remove-succeed')
+            } else {
+              return session.text('.not-found', [target])
+            }
+          }
+        } else {
+          return session.text('.no-mes-quoted')
+        }
+      }
+    })
+
+  var yuluAdd = ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
     .action(async ({ session }, ...rest) => {
       if (session.quote) {
         const content = session.quote.content
@@ -158,8 +195,7 @@ export function apply(ctx: Context, cfg: Config) {
         var result = await ctx.database.create('yulu', { content: content, time: new Date(), origin_message_id: session.quote.id, group: group, tags: tag_str })
         if (session.quote.elements[0].type == "img") {//语录为图片
           if (debugMode) { console.log(String(session.quote.elements[0].attrs.src)) }
-          getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir)//下载图片到本地路径
-          const local = pathToFileURL(join(resolve(cfg.dataDir), String(result.id)))
+          getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir, (id) => { session.execute(`yulu_test -i ${id}`) })//下载图片到本地路径
           await ctx.database.set('yulu', result.id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件
         }
         return session.text('.add-succeed')
@@ -168,7 +204,7 @@ export function apply(ctx: Context, cfg: Config) {
       }
     })
 
-  ctx.command('yulu/yulu_tag_add [...rest]').alias("addtag")
+  var yuluTagAdd = ctx.command('yulu/yulu_tag_add [...rest]').alias("addtag")
     .action(async ({ session }, ...rest) => {
       if (rest.length <= 1) {
         return session.text('.no-tag-to-add')
@@ -218,7 +254,7 @@ export function apply(ctx: Context, cfg: Config) {
       }
     })
 
-  ctx.command('yulu/yulu_tag_remove [...rest]').alias("rmtag")
+  var yuluTagAdd = ctx.command('yulu/yulu_tag_remove [...rest]').alias("rmtag")
     .action(async ({ session }, ...rest) => {
       if (rest.length === 0) {
         return session.text('.no-tag-to-remove')
@@ -253,36 +289,7 @@ export function apply(ctx: Context, cfg: Config) {
       }
     })
 
-  ctx.command('yulu/yulu_remove [...rest]').alias("删除语录")
-    .action(async ({ session }) => {
-      if (session.quote) {
-        if (!cfg.adminUsers.includes(session.event.user.id)) {
-          return session.text('.no-permission-to-remove')
-        } else {
-          var exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })
-          if (exist.length > 0) {//如果引用的是语录的原始消息
-            ctx.database.remove('yulu', [exist[0].id])
-            return session.text('.remove-succeed')
-          }
-          try {
-            var target = Number(session.quote.content.split(':')[0])
-          } catch {
-            return session.text('.no-mes-quoted')
-          }
-          exist = await ctx.database.get('yulu', { id: target, })
-          if (exist.length > 0) {
-            ctx.database.remove('yulu', [target])
-            return session.text('.remove-succeed')
-          } else {
-            return session.text('.not-found', [target])
-          }
-        }
-      } else {
-        return session.text('.no-mes-quoted')
-      }
-    })
-
-  ctx.command('yulu/yulu_select [...rest]').alias("语录")
+  var yuluSelect = ctx.command('yulu/yulu_select [...rest]').alias("语录")
     .option('id', '-i <id:number>')
     .option('global', '-g')
     .option('tag', '-t')
@@ -295,7 +302,14 @@ export function apply(ctx: Context, cfg: Config) {
         if (finds.length == 0) {
           return session.text('.no-result')
         }
-        return sendYulu(finds[0], cfg.dataDir, options.tag)
+        const y = finds[0]
+        if (options.list) {
+          var res = String(y.id) + ":" + y.tags + "\n"
+          return res
+        } else {
+          session.execute(`yulu_test -i ${options.id}`)
+          return sendYulu(y, cfg.dataDir, options.tag)
+        }
       } else {
         var group: string
         if (session.guildId) {
@@ -316,6 +330,7 @@ export function apply(ctx: Context, cfg: Config) {
         }
         if (!options.list) {
           const find = finds[Math.floor(Math.random() * finds.length)]
+          session.execute(`yulu_test -i ${find.id}`)
           const res = sendYulu(find, cfg.dataDir, options.tag)
           return res
         } else {
@@ -338,10 +353,7 @@ export function apply(ctx: Context, cfg: Config) {
         }
       }
     })
-  ctx.command('yulu/yulu_test <id:number>')
-    .action(async ({ session }, id) => {
 
-    })
   ctx.middleware(async (session, next) => {
     if (debugMode) {
       console.log(session.event)
