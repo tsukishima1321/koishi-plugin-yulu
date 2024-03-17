@@ -113,23 +113,6 @@ export function apply(ctx: Context, cfg: Config) {
     console.error("请检查文件权限")
   }
 
-  /*var yuluTest = ctx.command('yulu/yulu_test')
-    .option('id', '-i <id:number>')
-    .action(async ({ session, options }) => {
-      fs.stat(join(cfg.dataDir, String(options.id)), (err, stats) => {
-        if (err) {
-          console.error(err);
-        } else {
-          if (stats.size < 100) {
-            session.send(session.text('.download-failed', [options.id]))
-            session.execute(`yulu_select -i ${options.id} -l`)
-            setTimeout(() => {
-              session.execute(`yulu_remove -i ${options.id}`)
-            }, 1000);
-          }
-        }
-      });
-    })*/
   async function checkFile(id: number, session: Session) {
     var res = await new Promise((resolve, reject) => {
       fs.stat(join(cfg.dataDir, String(id)), (err, stats) => {
