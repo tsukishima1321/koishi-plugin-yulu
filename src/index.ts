@@ -5,7 +5,7 @@ let fs = require("fs");
 let request = require("request");
 
 async function getfileByUrl(url, fileName, dir) {
-  var res = new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     let stream = fs.createWriteStream(join(dir, fileName));
     request(url).pipe(stream).on("close", (err) => {
       if (err) {
@@ -17,7 +17,6 @@ async function getfileByUrl(url, fileName, dir) {
       }
     });
   })
-  return res
 }
 
 export const name = 'yulu'
@@ -113,20 +112,24 @@ export function apply(ctx: Context, cfg: Config) {
     console.error("请检查文件权限")
   }
 
-  async function checkFile(id: number, session: Session) {
-    var res = await new Promise((resolve, reject) => {
+  function rmErrYulu(id: number, session: Session) {
+    session.send(session.text('.download-failed', [id]))
+    session.execute(`yulu_select -i ${id} -l`)
+    console.warn(`语录${id}文件异常，从数据库移除`)
+    setTimeout(() => {
+      ctx.database.remove('yulu', [id])
+      session.send(session.text('.delete-finish', [id]))
+    }, 1000)
+  }
+
+  async function checkFile(id: number) {
+    return new Promise((resolve, reject) => {
       fs.stat(join(cfg.dataDir, String(id)), (err, stats) => {
         if (err) {
           console.error(err)
           reject(err)
         } else {
           if (stats.size < 100) {
-            session.send(session.text('.download-failed', [id]))
-            session.execute(`yulu_select -i ${id} -l`)
-            setTimeout(() => {
-              ctx.database.remove('yulu', [id])
-              session.send(session.text('.delete-finish', [id]))
-            }, 1000)
             resolve(false)
           } else {
             resolve(true)
@@ -134,7 +137,6 @@ export function apply(ctx: Context, cfg: Config) {
         }
       })
     })
-    return res
   }
 
   var yuluRemove = ctx.command('yulu/yulu_remove [...rest]').alias("删除语录")
@@ -208,10 +210,32 @@ export function apply(ctx: Context, cfg: Config) {
         const tag_str = JSON.stringify(tags)
         var result = await ctx.database.create('yulu', { content: content, time: new Date(), origin_message_id: session.quote.id, group: group, tags: tag_str })
         if (session.quote.elements[0].type == "img") {//语录为图片
-          if (debugMode) { console.log(String(session.quote.elements[0].attrs.src)) }
+          console.log(`下载语录${session.quote.elements[0].attrs.src}`)
           await getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir)//下载图片到本地路径
-          if (!await checkFile(result.id, session)) {//语录文件下载失败
-            return
+          if (!await checkFile(result.id)) {//语录文件下载失败
+            console.warn(`语录${session.quote.elements[0].attrs.src}下载失败`)
+            async function retry(ms) {
+              return new Promise((resolve, reject) => {
+                setTimeout(async () => {
+                  await getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir)
+                  resolve(await checkFile(result.id))
+                }, ms)
+              })
+            }
+            var flag = false;
+            for (var i = 0; i < 10; i++) {
+              console.log(`下载失败，第${i + 1}次重试`)
+              if (await retry(2000)) {
+                flag = true
+                console.log(`下载成功`)
+                break
+              }
+            }
+            if (!flag) {
+              console.log(`重试次数达上限`)
+              rmErrYulu(result.id, session)
+              return
+            }
           }
           await ctx.database.set('yulu', result.id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件
         }
@@ -324,7 +348,8 @@ export function apply(ctx: Context, cfg: Config) {
           var res = String(y.id) + ":" + y.tags + "\n"
           return res
         } else {
-          if (!await checkFile(options.id, session)) {//语录文件下载失败
+          if (!await checkFile(options.id)) {//语录文件下载失败
+            rmErrYulu(options.id, session)
             return
           }
           return sendYulu(y, cfg.dataDir, options.tag)
@@ -349,7 +374,8 @@ export function apply(ctx: Context, cfg: Config) {
         }
         if (!options.list) {
           const find = finds[Math.floor(Math.random() * finds.length)]
-          if (!await checkFile(find.id, session)) {//语录文件下载失败
+          if (!await checkFile(find.id)) {//语录文件下载失败
+            rmErrYulu(find.id, session)
             return
           }
           const res = sendYulu(find, cfg.dataDir, options.tag)
@@ -368,26 +394,10 @@ export function apply(ctx: Context, cfg: Config) {
             res += String(y.id) + ":" + y.tags + "\n"
           }
           if (i < finds.length) {
-            res += session.text('.rest', [finds.length - i])
+            res += session.text('.rest', [page, Math.ceil(finds.length / pageSize)])
           }
           return res
         }
       }
     })
-
-  ctx.middleware(async (session, next) => {
-    if (debugMode) {
-      console.log(session.event)
-      console.log(session.elements)
-      session.send("event:\n" + JSON.stringify(session.event))
-      if (session.quote) {
-        session.send("quote:\n" + JSON.stringify(session.quote))
-        console.log(session.quote)
-        console.log(session.quote.elements)
-      }
-      return next()
-    } else {
-      return next()
-    }
-  })
 }

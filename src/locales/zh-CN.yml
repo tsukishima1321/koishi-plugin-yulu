@@ -66,6 +66,6 @@ commands:
       full: 不进行分页，显示所有list的结果
     messages:
         no-result: 没有找到符合条件的语录
-        rest: 剩余{0}条记录，指定-p参数以翻页
+        rest: 第{0}/{1}页，指定-p参数以翻页
         download-failed: 文件{0}存在错误，正在删除语录
         delete-finish: 语录{0}已删除
