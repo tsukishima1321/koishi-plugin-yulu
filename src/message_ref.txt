@@ -1,0 +1,109 @@
+引用文字消息：
+
+{
+  "id": 23,
+  "type": "message-created",
+  "platform": "chronocat",
+  "selfId": "3783232893",
+  "timestamp": 1711621790000,
+  "user": {
+    "id": "2479568395",
+    "avatar": "http://thirdqq.qlogo.cn/headimg_dl?dst_uin=2479568395&spec=640"
+  },
+  "channel": {
+    "type": 1,
+    "id": "private:2479568395"
+  },
+  "message": {
+    "id": "7351359612685222246",
+    "content": "<quote chronocat:seq=\"1743\"><author id=\"2479568395\" name=\"月岛\" avatar=\"http://thirdqq.qlogo.cn/headimg_dl?dst_uin=2479568395&amp;spec=640\"/>消息</quote>引用",
+    "elements": [
+      {
+        "type": "quote",
+        "attrs": {
+          "chronocat:seq": "1743"
+        },
+        "children": [
+          {
+            "type": "author",
+            "attrs": {
+              "id": "2479568395",
+              "name": "月岛",
+              "avatar": "http://thirdqq.qlogo.cn/headimg_dl?dst_uin=2479568395&spec=640"
+            },
+            "children": []
+          },
+          {
+            "type": "text",
+            "attrs": {
+              "content": "消息"
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "attrs": {
+          "content": "引用"
+        },
+        "children": []
+      }
+    ]
+  }
+}
+
+引用图片：
+
+{
+  "id": 29,
+  "type": "message-created",
+  "platform": "chronocat",
+  "selfId": "3783232893",
+  "timestamp": 1711621958000,
+  "user": {
+    "id": "2479568395",
+    "avatar": "http://thirdqq.qlogo.cn/headimg_dl?dst_uin=2479568395&spec=640"
+  },
+  "channel": {
+    "type": 1,
+    "id": "private:2479568395"
+  },
+  "message": {
+    "id": "7351360334679417401",
+    "content": "<quote chronocat:seq=\"1752\"><author id=\"2479568395\" name=\"月岛\" avatar=\"http://thirdqq.qlogo.cn/headimg_dl?dst_uin=2479568395&amp;spec=640\"/><img src=\"http://127.0.0.1:5500/v1/assets/eyJtc2dJZCI6IjczNTEzNjAzMzQ2Nzk0MTc0MDIiLCJjaGF0VHlwZSI6MSwicGVlclVpZCI6InVfNlcyLVRBUVB6aWZYRm45a3VaQ0d5QSIsImVsZW1lbnRJZCI6IjczNTEzNjAzMzQ2Nzk0MTc0MDMiLCJ0aHVtYlNpemUiOjB9\"/></quote>添加语录",
+    "elements": [
+      {
+        "type": "quote",
+        "attrs": {
+          "chronocat:seq": "1752"
+        },
+        "children": [
+          {
+            "type": "author",
+            "attrs": {
+              "id": "2479568395",
+              "name": "月岛",
+              "avatar": "http://thirdqq.qlogo.cn/headimg_dl?dst_uin=2479568395&spec=640"
+            },
+            "children": []
+          },
+          {
+            "type": "img",
+            "attrs": {
+              "src": "http://127.0.0.1:5500/v1/assets/eyJtc2dJZCI6IjczNTEzNjAzMzQ2Nzk0MTc0MDIiLCJjaGF0VHlwZSI6MSwicGVlclVpZCI6InVfNlcyLVRBUVB6aWZYRm45a3VaQ0d5QSIsImVsZW1lbnRJZCI6IjczNTEzNjAzMzQ2Nzk0MTc0MDMiLCJ0aHVtYlNpemUiOjB9"
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "attrs": {
+          "content": "添加语录"
+        },
+        "children": []
+      }
+    ]
+  }
+}

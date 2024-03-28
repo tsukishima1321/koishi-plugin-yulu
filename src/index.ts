@@ -1,4 +1,4 @@
-import { Session, Context, Schema } from 'koishi'
+import { Session, Context, Schema, Argv } from 'koishi'
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url'
 let fs = require("fs");
@@ -67,6 +67,18 @@ function sendYulu(y: Yulu, p: string, t: boolean): string {
     res = res + y.content
   }
   return res
+}
+
+function getRandomElements(arr, count) {
+  const randomIndexes = new Set();
+  if (arr.length <= count) {
+    return arr;
+  }
+  while (randomIndexes.size < count) {
+    const randomIndex = Math.floor(Math.random() * arr.length);
+    randomIndexes.add(randomIndex);
+  }
+  return Array.from(randomIndexes).map((index: number) => arr[index]);
 }
 
 export function apply(ctx: Context, cfg: Config) {
@@ -154,17 +166,18 @@ export function apply(ctx: Context, cfg: Config) {
           return session.text('.remove-succeed')
         }
       } else {
-        if (session.quote) {
+        if (session.quote || session.elements[0].type == "quote") {
           if (!cfg.adminUsers.includes(session.event.user.id)) {
             return session.text('.no-permission-to-remove')
           } else {
-            var exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })
-            if (exist.length > 0) {//如果引用的是语录的原始消息
+            //var exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })
+            /*if (exist.length > 0) {//如果引用的是语录的原始消息
               ctx.database.remove('yulu', [exist[0].id])
               return session.text('.remove-succeed')
-            }
+            }*/
+            var exist
             try {
-              var target = Number(session.quote.content.split(':')[0])
+              var target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
             } catch {
               return session.text('.no-mes-quoted')
             }
@@ -184,8 +197,9 @@ export function apply(ctx: Context, cfg: Config) {
 
   var yuluAdd = ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
     .action(async ({ session }, ...rest) => {
-      if (session.quote) {
-        const content = session.quote.content
+      if (session.quote || session.elements[0].type == "quote") {
+        const content = session.event.message.elements[0].children[1]
+        console.log(content)
         const tags = []
         var group
         if (session.guildId) {
@@ -194,30 +208,35 @@ export function apply(ctx: Context, cfg: Config) {
         } else {
           group = session.userId
         }
-        var exist = await ctx.database.get('yulu', { content: { $eq: content }, })//搜索是否存在内容相同的语录（涉及到图片时有bug,明明数据库内容完全一致但还是重复，难道是太长了？）
+        if (content.type == "text") {
+          var exist = await ctx.database.get('yulu', { content: { $eq: content.attrs.content }, })
+          if (exist.length > 0) {
+            session.send(session.text('.already-exist'))
+            return sendYulu(exist[0], cfg.dataDir, true)
+          }
+        }
+
+        /*exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })//根据消息id搜索是否存在相同的语录，即判断该条消息是否已经被添加过
         if (exist.length > 0) {
           session.send(session.text('.already-exist'))
           return sendYulu(exist[0], cfg.dataDir, true)
-        }
-        exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })//根据消息id搜索是否存在相同的语录，即判断该条消息是否已经被添加过
-        if (exist.length > 0) {
-          session.send(session.text('.already-exist'))
-          return sendYulu(exist[0], cfg.dataDir, true)
-        }
-        for (var i = 0; i < rest.length - 1; i++) {//由于rest会把引用的内容也加入 这里要-1 感觉可能出bug
+        }*/
+        for (var i = 0; i < rest.length; i++) {//由于rest会把引用的内容也加入 这里要-1 感觉可能出bug
           tags.push(rest[i])
         }
         const tag_str = JSON.stringify(tags)
-        var result = await ctx.database.create('yulu', { content: content, time: new Date(), origin_message_id: session.quote.id, group: group, tags: tag_str })
-        if (session.quote.elements[0].type == "img") {//语录为图片
-          console.log(`下载语录${session.quote.elements[0].attrs.src}`)
-          await getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir)//下载图片到本地路径
+        if (content.type == "text") {
+          var result = await ctx.database.create('yulu', { content: content.attrs.content, time: new Date(), origin_message_id: "114514"/*session.quote.id*/, group: group, tags: tag_str })
+        } else if (content.type == "img") {
+          var result = await ctx.database.create('yulu', { content: content.attrs.content, time: new Date(), origin_message_id: "114514"/*session.quote.id*/, group: group, tags: tag_str })
+          const src = content.attrs.src
+          await getfileByUrl(src, String(result.id), cfg.dataDir)//下载图片到本地路径
           if (!await checkFile(result.id)) {//语录文件下载失败
-            console.warn(`语录${session.quote.elements[0].attrs.src}下载失败`)
+            console.warn(`语录${src}下载失败`)
             async function retry(ms) {
               return new Promise((resolve, reject) => {
                 setTimeout(async () => {
-                  await getfileByUrl(session.quote.elements[0].attrs.src, String(result.id), cfg.dataDir)
+                  await getfileByUrl(src, String(result.id), cfg.dataDir)
                   resolve(await checkFile(result.id))
                 }, ms)
               })
@@ -247,13 +266,13 @@ export function apply(ctx: Context, cfg: Config) {
 
   var yuluTagAdd = ctx.command('yulu/yulu_tag_add [...rest]').alias("addtag")
     .action(async ({ session }, ...rest) => {
-      if (rest.length <= 1) {
+      if (rest.length < 1) {
         return session.text('.no-tag-to-add')
       } else {
-        if (session.quote) {
-          var exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })
-          if (exist.length > 0) {//如果引用的是语录的原始消息
-            var count: number = 0
+        if (session.quote || session.elements[0].type == "quote") {
+          //var exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })
+          if (/*exist.length > 0*/0) {//如果引用的是语录的原始消息
+            /*var count: number = 0
             const target = exist[0].id
             var tags = JSON.parse(exist[0].tags)
             for (var i = 0; i < rest.length - 1; i++) {
@@ -261,22 +280,22 @@ export function apply(ctx: Context, cfg: Config) {
                 tags.push(rest[i])
                 count++
               }
-            }
+            }*/
             const tag_str = JSON.stringify(tags)
             ctx.database.set('yulu', target, { tags: tag_str })
             return session.text('.add-succeed', [count])
           } else {//解析消息获得id来定位语录
             try {
-              var target = Number(session.quote.content.split(':')[0])
+              var target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
             } catch {
               return session.text('.no-mes-quoted')
             }
-            exist = await ctx.database.get('yulu', { id: target, })
+            var exist = await ctx.database.get('yulu', { id: target, })
             if (exist.length > 0) {
               var count: number = 0
               const target = exist[0].id
               var tags = JSON.parse(exist[0].tags)
-              for (var i = 0; i < rest.length - 1; i++) {
+              for (var i = 0; i < rest.length; i++) {
                 if (!tags.includes(rest[i])) {
                   tags.push(rest[i])
                   count++
@@ -295,14 +314,14 @@ export function apply(ctx: Context, cfg: Config) {
       }
     })
 
-  var yuluTagAdd = ctx.command('yulu/yulu_tag_remove [...rest]').alias("rmtag")
+  var yuluTagRemove = ctx.command('yulu/yulu_tag_remove [...rest]').alias("rmtag")
     .action(async ({ session }, ...rest) => {
       if (rest.length === 0) {
         return session.text('.no-tag-to-remove')
       } else {
-        if (session.quote) {
+        if (session.quote || session.elements[0].type == "quote") {
           try {
-            var target = Number(session.quote.content.split(':')[0])
+            var target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
           } catch {
             return session.text('.no-mes-quoted')
           }
@@ -330,7 +349,7 @@ export function apply(ctx: Context, cfg: Config) {
       }
     })
 
-  var yuluSelect = ctx.command('yulu/yulu_select [...rest]').alias("语录")
+  ctx.command('yulu/yulu_select [...rest]').alias("语录")
     .option('id', '-i <id:number>')
     .option('global', '-g')
     .option('tag', '-t')
@@ -400,4 +419,22 @@ export function apply(ctx: Context, cfg: Config) {
         }
       }
     })
+
+  ctx.middleware(async (session, next) => {
+    if (session.elements[0].type == "quote") {
+      session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
+      console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
+    }
+    if (debugMode) {
+      try {
+        console.log(JSON.stringify(session.event, null, "  "))
+        //session.send("event:\n" + JSON.stringify(session.event))
+        return next()
+      } catch (error) {
+        return next()
+      }
+    } else {
+      return next()
+    }
+  })
 }
