@@ -22,7 +22,7 @@ commands:
   yulu_add:
     description: 添加一条语录
     usage: |-
-      引用一条消息作为要添加的语录，可添加多个tag，用空格隔开。图片等非文本消息需要在插件启动后发出的才能被引用，转发的消息可能无法被引用
+      准备添加语录，可添加多个tag，用空格隔开。之后由该指令发送者发送的下一张图片将作为语录图片
     messages:
         already-exist: 语录已存在
         add-succeed: 添加成功
