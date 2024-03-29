@@ -60,7 +60,7 @@ function sendYulu(y: Yulu, p: string, t: boolean): string {
   if (t) {
     res = res + y.tags
   }
-  if (y.content == "img") {
+  if (y.content.slice(0, 4) == "http" || y.content == "img") {
     const href = pathToFileURL(join(resolve(p), String(y.id))).href
     res = res + `<img src="${href}">`
   } else {
@@ -115,7 +115,7 @@ export function apply(ctx: Context, cfg: Config) {
 
   var pageSize = cfg.pageSize
 
-  var listeningPic: Array<{ id: number, group: string, user: string }> = []
+  var listeningQueue: Array<{ id: number, group: string, user: string }> = []
 
   try {
     if (!fs.existsSync(cfg.dataDir)) {
@@ -211,8 +211,8 @@ export function apply(ctx: Context, cfg: Config) {
         tags.push(rest[i])
       }
       const tag_str = JSON.stringify(tags)
-      if (session.quote || session.elements[0].type == "quote") {
-        const content = session.event.message.elements[0].children[1]
+      if (/*session.quote || session.elements[0].type == "quote"*/0) {
+        /*const content = session.event.message.elements[0].children[1]
         console.log(content)
 
         if (content.type == "text") {
@@ -222,15 +222,15 @@ export function apply(ctx: Context, cfg: Config) {
             return sendYulu(exist[0], cfg.dataDir, true)
           }
         }
-        /*exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })//根据消息id搜索是否存在相同的语录，即判断该条消息是否已经被添加过
+        exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })//根据消息id搜索是否存在相同的语录，即判断该条消息是否已经被添加过
         if (exist.length > 0) {
           session.send(session.text('.already-exist'))
           return sendYulu(exist[0], cfg.dataDir, true)
-        }*/
+        }
         if (content.type == "text") {
-          var result = await ctx.database.create('yulu', { content: content.attrs.content, time: new Date(), origin_message_id: "114514"/*session.quote.id*/, group: group, tags: tag_str })
+          var result = await ctx.database.create('yulu', { content: content.attrs.content, time: new Date(), origin_message_id: session.quote.id, group: group, tags: tag_str })
           return session.text('.add-succeed')
-        } else if (content.type == "img") {/*
+        } else if (content.type == "img") {
           var result = await ctx.database.create('yulu', { content: content.attrs.src, time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str })
           const src = content.attrs.src
           await getfileByUrl(src, String(result.id), cfg.dataDir)//下载图片到本地路径
@@ -259,12 +259,12 @@ export function apply(ctx: Context, cfg: Config) {
               return
             }
           }
-          await ctx.database.set('yulu', result.id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件*/
+          await ctx.database.set('yulu', result.id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件
 
-        }
+        }*/
       } else {
         var result = await ctx.database.create('yulu', { content: "pending", time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str })
-        listeningPic.push({ id: result.id, group: group, user: session.event.user.id })
+        listeningQueue.push({ id: result.id, group: group, user: session.event.user.id })
         return session.text('.wait-pic')
       }
     })
@@ -430,18 +430,18 @@ export function apply(ctx: Context, cfg: Config) {
       session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
       console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
     }
-    if (listeningPic.length > 0) {
-      for (var i = 0; i < listeningPic.length; i++) {
-        if ((!session.guildId || session.guildId == listeningPic[i].group) && session.event.user.id == listeningPic[i].user && session.event.message.elements[0].type == "img") {
+    if (listeningQueue.length > 0) {
+      for (var i = 0; i < listeningQueue.length; i++) {
+        if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user && session.event.message.elements[0].type == "img") {
           const src = session.event.message.elements[0].attrs.src
-          await getfileByUrl(src, String(listeningPic[i].id), cfg.dataDir)//下载图片到本地路径
-          if (!await checkFile(listeningPic[i].id)) {//语录文件下载失败
+          await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)//下载图片到本地路径
+          if (!await checkFile(listeningQueue[i].id)) {//语录文件下载失败
             console.warn(`语录${src}下载失败`)
             async function retry(ms) {
               return new Promise((resolve, reject) => {
                 setTimeout(async () => {
-                  await getfileByUrl(src, String(listeningPic[i].id), cfg.dataDir)
-                  resolve(await checkFile(listeningPic[i].id))
+                  await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)
+                  resolve(await checkFile(listeningQueue[i].id))
                 }, ms)
               })
             }
@@ -456,16 +456,17 @@ export function apply(ctx: Context, cfg: Config) {
             }
             if (!flag) {
               console.log(`重试次数达上限`)
-              rmErrYulu(listeningPic[i].id, session)
+              rmErrYulu(listeningQueue[i].id, session)
               return
             }
           }
-          await ctx.database.set('yulu', listeningPic[i].id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件*/
-          session.send(`语录${listeningPic[i].id}添加成功`)
-          listeningPic[i].id = -1;
+          //await ctx.database.set('yulu', listeningQueue[i].id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件*/
+          await ctx.database.set('yulu', listeningQueue[i].id, { content: src })
+          session.send(`语录${listeningQueue[i].id}添加成功`)
+          listeningQueue[i].id = -1;
         }
       }
-      listeningPic = listeningPic.filter((item) => item.id != -1)
+      listeningQueue = listeningQueue.filter((item) => { item.id != -1 })
     }
     if (debugMode) {
       try {
