@@ -115,6 +115,8 @@ export function apply(ctx: Context, cfg: Config) {
 
   var pageSize = cfg.pageSize
 
+  var listeningPic: Array<{ id: number, group: string, user: string }> = []
+
   try {
     if (!fs.existsSync(cfg.dataDir)) {
       fs.mkdirSync(cfg.dataDir)
@@ -197,17 +199,22 @@ export function apply(ctx: Context, cfg: Config) {
 
   var yuluAdd = ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
     .action(async ({ session }, ...rest) => {
+      const tags = []
+      var group
+      if (session.guildId) {
+        group = session.guildId
+      } else {
+        group = session.userId
+      }
+      tags.push(String(session.guildId))
+      for (var i = 0; i < rest.length; i++) {
+        tags.push(rest[i])
+      }
+      const tag_str = JSON.stringify(tags)
       if (session.quote || session.elements[0].type == "quote") {
         const content = session.event.message.elements[0].children[1]
         console.log(content)
-        const tags = []
-        var group
-        if (session.guildId) {
-          tags.push(String(session.guildId))
-          group = session.guildId
-        } else {
-          group = session.userId
-        }
+
         if (content.type == "text") {
           var exist = await ctx.database.get('yulu', { content: { $eq: content.attrs.content }, })
           if (exist.length > 0) {
@@ -215,20 +222,16 @@ export function apply(ctx: Context, cfg: Config) {
             return sendYulu(exist[0], cfg.dataDir, true)
           }
         }
-
         /*exist = await ctx.database.get('yulu', { origin_message_id: session.quote.id, })//根据消息id搜索是否存在相同的语录，即判断该条消息是否已经被添加过
         if (exist.length > 0) {
           session.send(session.text('.already-exist'))
           return sendYulu(exist[0], cfg.dataDir, true)
         }*/
-        for (var i = 0; i < rest.length; i++) {//由于rest会把引用的内容也加入 这里要-1 感觉可能出bug
-          tags.push(rest[i])
-        }
-        const tag_str = JSON.stringify(tags)
         if (content.type == "text") {
           var result = await ctx.database.create('yulu', { content: content.attrs.content, time: new Date(), origin_message_id: "114514"/*session.quote.id*/, group: group, tags: tag_str })
-        } else if (content.type == "img") {
-          var result = await ctx.database.create('yulu', { content: content.attrs.content, time: new Date(), origin_message_id: "114514"/*session.quote.id*/, group: group, tags: tag_str })
+          return session.text('.add-succeed')
+        } else if (content.type == "img") {/*
+          var result = await ctx.database.create('yulu', { content: content.attrs.src, time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str })
           const src = content.attrs.src
           await getfileByUrl(src, String(result.id), cfg.dataDir)//下载图片到本地路径
           if (!await checkFile(result.id)) {//语录文件下载失败
@@ -256,11 +259,13 @@ export function apply(ctx: Context, cfg: Config) {
               return
             }
           }
-          await ctx.database.set('yulu', result.id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件
+          await ctx.database.set('yulu', result.id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件*/
+
         }
-        return session.text('.add-succeed')
       } else {
-        return session.text('.no-mes-quoted')
+        var result = await ctx.database.create('yulu', { content: "pending", time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str })
+        listeningPic.push({ id: result.id, group: group, user: session.event.user.id })
+        return session.text('.wait-pic')
       }
     })
 
@@ -424,6 +429,43 @@ export function apply(ctx: Context, cfg: Config) {
     if (session.elements[0].type == "quote") {
       session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
       console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
+    }
+    if (listeningPic.length > 0) {
+      for (var i = 0; i < listeningPic.length; i++) {
+        if ((!session.guildId || session.guildId == listeningPic[i].group) && session.event.user.id == listeningPic[i].user && session.event.message.elements[0].type == "img") {
+          const src = session.event.message.elements[0].attrs.src
+          await getfileByUrl(src, String(listeningPic[i].id), cfg.dataDir)//下载图片到本地路径
+          if (!await checkFile(listeningPic[i].id)) {//语录文件下载失败
+            console.warn(`语录${src}下载失败`)
+            async function retry(ms) {
+              return new Promise((resolve, reject) => {
+                setTimeout(async () => {
+                  await getfileByUrl(src, String(listeningPic[i].id), cfg.dataDir)
+                  resolve(await checkFile(listeningPic[i].id))
+                }, ms)
+              })
+            }
+            var flag = false;
+            for (var i = 0; i < 10; i++) {
+              console.log(`下载失败，第${i + 1}次重试`)
+              if (await retry(2000)) {
+                flag = true
+                console.log(`下载成功`)
+                break
+              }
+            }
+            if (!flag) {
+              console.log(`重试次数达上限`)
+              rmErrYulu(listeningPic[i].id, session)
+              return
+            }
+          }
+          await ctx.database.set('yulu', listeningPic[i].id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件*/
+          session.send(`语录${listeningPic[i].id}添加成功`)
+          listeningPic[i].id = -1;
+        }
+      }
+      listeningPic = listeningPic.filter((item) => item.id != -1)
     }
     if (debugMode) {
       try {

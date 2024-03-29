@@ -107,3 +107,33 @@
     ]
   }
 }
+
+图片：
+{
+  "id": 2,
+  "type": "message-created",
+  "platform": "chronocat",
+  "selfId": "3783232893",
+  "timestamp": 1711685304000,
+  "user": {
+    "id": "2479568395",
+    "avatar": "http://thirdqq.qlogo.cn/headimg_dl?dst_uin=2479568395&spec=640"
+  },
+  "channel": {
+    "type": 1,
+    "id": "private:2479568395"
+  },
+  "message": {
+    "id": "7351632407111028713",
+    "content": "<img src=\"http://127.0.0.1:5500/v1/assets/eyJtc2dJZCI6IjczNTE2MzI0MDcxMTEwMjg3MTMiLCJjaGF0VHlwZSI6MSwicGVlclVpZCI6InVfNlcyLVRBUVB6aWZYRm45a3VaQ0d5QSIsImVsZW1lbnRJZCI6IjczNTE2MzI0MDcxMTEwMjg3MTIiLCJ0aHVtYlNpemUiOjB9\"/>",
+    "elements": [
+      {
+        "type": "img",
+        "attrs": {
+          "src": "http://127.0.0.1:5500/v1/assets/eyJtc2dJZCI6IjczNTE2MzI0MDcxMTEwMjg3MTMiLCJjaGF0VHlwZSI6MSwicGVlclVpZCI6InVfNlcyLVRBUVB6aWZYRm45a3VaQ0d5QSIsImVsZW1lbnRJZCI6IjczNTE2MzI0MDcxMTEwMjg3MTIiLCJ0aHVtYlNpemUiOjB9"
+        },
+        "children": []
+      }
+    ]
+  }
+}
