@@ -1,10 +1,10 @@
-import { Session, Context, Schema, Argv } from 'koishi'
+import { Session, Context, Schema } from 'koishi'
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url'
 let fs = require("fs");
 let request = require("request");
 
-async function getfileByUrl(url, fileName, dir) {
+async function getfileByUrl(url: string, fileName: string, dir: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
     let stream = fs.createWriteStream(join(dir, fileName));
     request(url).pipe(stream).on("close", (err) => {
@@ -16,6 +16,23 @@ async function getfileByUrl(url, fileName, dir) {
         resolve(true)
       }
     });
+  })
+}
+
+async function checkFile(path: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    fs.stat(path, (err, stats) => {
+      if (err) {
+        console.error(err)
+        reject(err)
+      } else {
+        if (stats.size < 100) {
+          resolve(false)
+        } else {
+          resolve(true)
+        }
+      }
+    })
   })
 }
 
@@ -69,7 +86,7 @@ function sendYulu(y: Yulu, p: string, t: boolean): string {
   return res
 }
 
-function getRandomElements(arr, count) {
+function getRandomElements(arr: Array<any>, count: number): Array<any> {
   const randomIndexes = new Set();
   if (arr.length <= count) {
     return arr;
@@ -134,23 +151,6 @@ export function apply(ctx: Context, cfg: Config) {
       ctx.database.remove('yulu', [id])
       session.send(session.text('.delete-finish', [id]))
     }, 1000)
-  }
-
-  async function checkFile(id: number) {
-    return new Promise((resolve, reject) => {
-      fs.stat(join(cfg.dataDir, String(id)), (err, stats) => {
-        if (err) {
-          console.error(err)
-          reject(err)
-        } else {
-          if (stats.size < 100) {
-            resolve(false)
-          } else {
-            resolve(true)
-          }
-        }
-      })
-    })
   }
 
   var yuluRemove = ctx.command('yulu/yulu_remove [...rest]').alias("删除语录")
@@ -298,7 +298,7 @@ export function apply(ctx: Context, cfg: Config) {
           var res = String(y.id) + ":" + y.tags + "\n"
           return res
         } else {
-          if (!await checkFile(options.id)) {//语录文件下载失败
+          if (!await checkFile(join(cfg.dataDir, String(options.id)))) {//语录文件下载失败
             rmErrYulu(options.id, session)
             return
           }
@@ -324,7 +324,7 @@ export function apply(ctx: Context, cfg: Config) {
         }
         if (!options.list) {
           const find = finds[Math.floor(Math.random() * finds.length)]
-          if (!await checkFile(find.id)) {//语录文件下载失败
+          if (!await checkFile(join(cfg.dataDir, String(find.id)))) {//语录文件下载失败
             rmErrYulu(find.id, session)
             return
           }
@@ -358,41 +358,44 @@ export function apply(ctx: Context, cfg: Config) {
     }
     if (listeningQueue.length > 0) {
       for (var i = 0; i < listeningQueue.length; i++) {
-        if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user && session.event.message.elements[0].type == "img") {
-          const src = session.event.message.elements[0].attrs.src
-          await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)//下载图片到本地路径
-          if (!await checkFile(listeningQueue[i].id)) {//语录文件下载失败
-            console.warn(`语录${src}下载失败`)
-            async function retry(ms:number) {
-              return new Promise((resolve, reject) => {
-                setTimeout(async () => {
-                  await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)
-                  resolve(await checkFile(listeningQueue[i].id))
-                }, ms)
-              })
-            }
-            var flag = false;
-            for (var i = 0; i < 10; i++) {
-              console.log(`下载失败，第${i + 1}次重试`)
-              if (await retry(2000)) {
-                flag = true
-                console.log(`下载成功`)
-                break
+        if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
+          if (session.event.message.elements[0].type == "img") {
+            const src = session.event.message.elements[0].attrs.src
+            await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)//下载图片到本地路径
+            if (!await checkFile(join(cfg.dataDir, String(listeningQueue[i].id)))) {//语录文件下载失败
+              console.warn(`语录${src}下载失败`)
+              async function retry(ms: number) {
+                return new Promise((resolve, reject) => {
+                  setTimeout(async () => {
+                    await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)
+                    resolve(await checkFile(join(cfg.dataDir, String(listeningQueue[i].id))))
+                  }, ms)
+                })
+              }
+              var flag = false;
+              for (var i = 0; i < 10; i++) {
+                console.log(`下载失败，第${i + 1}次重试`)
+                if (await retry(2000)) {
+                  flag = true
+                  console.log(`下载成功`)
+                  break
+                }
+              }
+              if (!flag) {
+                console.log(`重试次数达上限`)
+                rmErrYulu(listeningQueue[i].id, session)
+                return
               }
             }
-            if (!flag) {
-              console.log(`重试次数达上限`)
-              rmErrYulu(listeningQueue[i].id, session)
-              return
-            }
+            await ctx.database.set('yulu', listeningQueue[i].id, { content: src })
+            session.send(session.text("add-succeed", [listeningQueue[i].id]))
+            listeningQueue[i].id = -1;
+          } else if (session.event.message.content == "取消") {
+            listeningQueue[i].id = -1;
           }
-          //await ctx.database.set('yulu', listeningQueue[i].id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件*/
-          await ctx.database.set('yulu', listeningQueue[i].id, { content: src })
-          session.send(session.text("add-succeed",[listeningQueue[i].id]))
-          listeningQueue[i].id = -1;
         }
+        listeningQueue = listeningQueue.filter((item) => { item.id != -1 })
       }
-      listeningQueue = listeningQueue.filter((item) => { item.id != -1 })
     }
     if (debugMode) {
       try {
