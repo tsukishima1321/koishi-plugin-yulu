@@ -201,7 +201,7 @@ export function apply(ctx: Context, cfg: Config) {
       } else {
         group = session.userId
       }
-      tags.push(String(session.guildId))
+      tags.push(group)
       for (var i = 0; i < rest.length; i++) {
         tags.push(rest[i])
       }
