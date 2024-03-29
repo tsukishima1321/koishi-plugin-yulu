@@ -108,6 +108,8 @@ export function apply(ctx: Context, cfg: Config) {
     group: 'string'
   }, { autoInc: true })
 
+  ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
+
   var debugMode = false
 
   ctx.command('yulu/yulu_debug')
@@ -128,12 +130,6 @@ export function apply(ctx: Context, cfg: Config) {
       return session.text('.debug-status', [debugMode])
     })
 
-  ctx.i18n.define('zh-CN', require('./locales/zh-CN'))
-
-  var pageSize = cfg.pageSize
-
-  var listeningQueue: Array<{ id: number, group: string, user: string }> = []
-
   try {
     if (!fs.existsSync(cfg.dataDir)) {
       fs.mkdirSync(cfg.dataDir)
@@ -142,6 +138,8 @@ export function apply(ctx: Context, cfg: Config) {
     console.error(err)
     console.error("请检查文件权限")
   }
+
+  var listeningQueue: Array<{ id: number, group: string, user: string }> = []
 
   function rmErrYulu(id: number, session: Session) {
     session.send(session.text('.download-failed', [id]))
@@ -339,12 +337,12 @@ export function apply(ctx: Context, cfg: Config) {
           }
           var res: string = ""
           var i = 0;
-          for (i = page * pageSize - pageSize; (i < page * pageSize || options.full) && i < finds.length; i++) {
+          for (i = page * cfg.pageSize - cfg.pageSize; (i < page * cfg.pageSize || options.full) && i < finds.length; i++) {
             const y = finds[i]
             res += String(y.id) + ":" + y.tags + "\n"
           }
           if (i < finds.length) {
-            res += session.text('.rest', [page, Math.ceil(finds.length / pageSize)])
+            res += session.text('.rest', [page, Math.ceil(finds.length / cfg.pageSize)])
           }
           return res
         }
