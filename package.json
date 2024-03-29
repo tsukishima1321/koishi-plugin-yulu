@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-yulu-satori",
-  "description": "适用于koishi的语录插件",
-  "version": "0.1.9",
+  "description": "适用于koishi-satori的语录插件",
+  "version": "0.2.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
