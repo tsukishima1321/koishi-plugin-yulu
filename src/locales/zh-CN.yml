@@ -7,6 +7,8 @@ dataDir:
 pageSize:
   $description: list指令的分页大小
 
+add-succeed: "{0}:添加成功"
+
 commands:
   yulu_debug:
     messages:

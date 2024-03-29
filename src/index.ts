@@ -363,7 +363,7 @@ export function apply(ctx: Context, cfg: Config) {
           await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)//下载图片到本地路径
           if (!await checkFile(listeningQueue[i].id)) {//语录文件下载失败
             console.warn(`语录${src}下载失败`)
-            async function retry(ms) {
+            async function retry(ms:number) {
               return new Promise((resolve, reject) => {
                 setTimeout(async () => {
                   await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)
@@ -388,7 +388,7 @@ export function apply(ctx: Context, cfg: Config) {
           }
           //await ctx.database.set('yulu', listeningQueue[i].id, { content: "img" })//替换数据库中的内容为图片标识，发送时根据id查找图片文件*/
           await ctx.database.set('yulu', listeningQueue[i].id, { content: src })
-          session.send(`语录${listeningQueue[i].id}添加成功`)
+          session.send(session.text("add-succeed",[listeningQueue[i].id]))
           listeningQueue[i].id = -1;
         }
       }
