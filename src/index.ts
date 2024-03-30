@@ -362,9 +362,9 @@ export function apply(ctx: Context, cfg: Config) {
       }
     }
     if (listeningQueue.length > 0) {
-      console.log(session.event)
+      /*console.log(session.event)
       console.log(listeningQueue)
-      console.log(session.guildId, session.event.user.id, session.event.message.elements[0].type)
+      console.log(session.guildId, session.event.user.id, session.event.message.elements[0].type)*/
       for (var i = 0; i < listeningQueue.length; i++) {
         if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
           const item = listeningQueue[i].content;
