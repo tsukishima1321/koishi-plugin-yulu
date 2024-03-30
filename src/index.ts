@@ -139,7 +139,7 @@ export function apply(ctx: Context, cfg: Config) {
     console.error("请检查文件权限")
   }
 
-  var listeningQueue: Array<{ id: number, group: string, user: string }> = []
+  var listeningQueue: Array<{ group: string, user: string, content: { time: Date, origin_message_id: string, group: string, tags: string } }> = []
 
   function rmErrYulu(id: number, session: Session) {
     session.send(session.text('.download-failed', [id]))
@@ -192,6 +192,11 @@ export function apply(ctx: Context, cfg: Config) {
 
   var yuluAdd = ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
     .action(async ({ session }, ...rest) => {
+      for (var i = 0; i < listeningQueue.length; i++) {
+        if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
+          return session.text(".still-in-progress")
+        }
+      }
       const tags = []
       var group
       if (session.guildId) {
@@ -204,8 +209,8 @@ export function apply(ctx: Context, cfg: Config) {
         tags.push(rest[i])
       }
       const tag_str = JSON.stringify(tags)
-      var result = await ctx.database.create('yulu', { content: "pending", time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str })
-      listeningQueue.push({ id: result.id, group: group, user: session.event.user.id })
+      var cont = {time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str }
+      listeningQueue.push({ group: group, user: session.event.user.id, content: cont })
       return session.text('.wait-pic')
     })
 
@@ -350,23 +355,30 @@ export function apply(ctx: Context, cfg: Config) {
     })
 
   ctx.middleware(async (session, next) => {
-    if (session.elements[0].type == "quote") {
-      session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
-      console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
+    if (session.elements.length != 0) {
+      if (session.elements[0].type == "quote") {
+        session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
+        console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
+      }
     }
     if (listeningQueue.length > 0) {
+      console.log(session.event)
+      console.log(listeningQueue)
+      console.log(session.guildId, session.event.user.id, session.event.message.elements[0].type)
       for (var i = 0; i < listeningQueue.length; i++) {
         if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
+          const item = listeningQueue[i].content;
           if (session.event.message.elements[0].type == "img") {
             const src = session.event.message.elements[0].attrs.src
-            await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)//下载图片到本地路径
-            if (!await checkFile(join(cfg.dataDir, String(listeningQueue[i].id)))) {//语录文件下载失败
+            const res = await ctx.database.create('yulu', { content: src, time: item.time, origin_message_id: item.origin_message_id, tags: item.tags, group: item.group })
+            await getfileByUrl(src, String(res.id), cfg.dataDir)//下载图片到本地路径
+            if (!await checkFile(join(cfg.dataDir, String(res.id)))) {//语录文件下载失败
               console.warn(`语录${src}下载失败`)
               async function retry(ms: number) {
                 return new Promise((resolve, reject) => {
                   setTimeout(async () => {
-                    await getfileByUrl(src, String(listeningQueue[i].id), cfg.dataDir)
-                    resolve(await checkFile(join(cfg.dataDir, String(listeningQueue[i].id))))
+                    await getfileByUrl(src, String(res.id), cfg.dataDir)
+                    resolve(await checkFile(join(cfg.dataDir, String(res.id))))
                   }, ms)
                 })
               }
@@ -381,19 +393,21 @@ export function apply(ctx: Context, cfg: Config) {
               }
               if (!flag) {
                 console.log(`重试次数达上限`)
-                rmErrYulu(listeningQueue[i].id, session)
+                rmErrYulu(res.id, session)
                 return
               }
             }
-            await ctx.database.set('yulu', listeningQueue[i].id, { content: src })
-            session.send(session.text("add-succeed", [listeningQueue[i].id]))
-            listeningQueue[i].id = -1;
+            await ctx.database.set('yulu', res.id, { origin_message_id: session.event.message.id })
+            session.send(session.text("add-succeed", [res.id]))
+            listeningQueue[i].user = "finished";
+            break
           } else if (session.event.message.content == "取消") {
-            listeningQueue[i].id = -1;
+            listeningQueue[i].user = "finished";
+            break
           }
         }
-        listeningQueue = listeningQueue.filter((item) => { item.id != -1 })
       }
+      listeningQueue = listeningQueue.filter((item) => { item.user != "finished" })
     }
     if (debugMode) {
       try {

@@ -30,6 +30,7 @@ commands:
         download-failed: 语录{0}下载失败，正在移除
         delete-finish: 语录{0}已删除
         wait-pic: 请上传语录图片：
+        still-in-progress: 您有正在进行的上传会话，发送“取消”终止
   yulu_tag_add:
     description: 为一条语录增加tag
     usage: |-
