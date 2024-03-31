@@ -209,7 +209,7 @@ export function apply(ctx: Context, cfg: Config) {
         tags.push(rest[i])
       }
       const tag_str = JSON.stringify(tags)
-      var cont = {time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str }
+      var cont = { time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str }
       listeningQueue.push({ group: group, user: session.event.user.id, content: cont })
       return session.text('.wait-pic')
     })
@@ -358,15 +358,17 @@ export function apply(ctx: Context, cfg: Config) {
     if (session.elements.length != 0) {
       if (session.elements[0].type == "quote") {
         session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
-        console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
+        //console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
       }
     }
     if (listeningQueue.length > 0) {
-      /*console.log(session.event)
-      console.log(listeningQueue)
-      console.log(session.guildId, session.event.user.id, session.event.message.elements[0].type)*/
+      if (debugMode) {
+        console.log(session.event)
+        console.log(listeningQueue)
+        console.log(session.guildId, session.event.user.id, session.event.message.elements[0].type)
+      }
       for (var i = 0; i < listeningQueue.length; i++) {
-        if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
+        if (((!session.guildId && listeningQueue[i].group == session.event.user.id) || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
           const item = listeningQueue[i].content;
           if (session.event.message.elements[0].type == "img") {
             const src = session.event.message.elements[0].attrs.src
@@ -409,7 +411,7 @@ export function apply(ctx: Context, cfg: Config) {
       }
       listeningQueue = listeningQueue.filter((item) => { item.user != "finished" })
     }
-    if (debugMode) {
+    /*if (debugMode) {
       try {
         console.log(JSON.stringify(session.event, null, "  "))
         //session.send("event:\n" + JSON.stringify(session.event))
@@ -419,6 +421,6 @@ export function apply(ctx: Context, cfg: Config) {
       }
     } else {
       return next()
-    }
+    }*/
   })
 }
