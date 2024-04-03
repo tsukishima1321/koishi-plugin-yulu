@@ -193,12 +193,12 @@ export function apply(ctx: Context, cfg: Config) {
   var yuluAdd = ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
     .action(async ({ session }, ...rest) => {
       for (var i = 0; i < listeningQueue.length; i++) {
-        if ((!session.guildId || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
+        if (((!session.guildId && listeningQueue[i].group == session.event.user.id) || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
           return session.text(".still-in-progress")
         }
       }
       const tags = []
-      var group
+      var group:string
       if (session.guildId) {
         group = session.guildId
       } else {
@@ -355,10 +355,10 @@ export function apply(ctx: Context, cfg: Config) {
     })
 
   ctx.middleware(async (session, next) => {
-    if (session.elements.length != 0) {
-      if (session.elements[0].type == "quote") {
+    for (var i = 0; i < session.elements.length; i++) {
+      if (session.elements[i].type == "quote") {
         session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
-        //console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
+        break
       }
     }
     if (listeningQueue.length > 0) {
@@ -399,6 +399,7 @@ export function apply(ctx: Context, cfg: Config) {
                 return
               }
             }
+            //OCR
             await ctx.database.set('yulu', res.id, { origin_message_id: session.event.message.id })
             session.send(session.text("add-succeed", [res.id]))
             listeningQueue[i].user = "finished";
@@ -411,6 +412,7 @@ export function apply(ctx: Context, cfg: Config) {
       }
       listeningQueue = listeningQueue.filter((item) => { item.user != "finished" })
     }
+    return next()
     /*if (debugMode) {
       try {
         console.log(JSON.stringify(session.event, null, "  "))
