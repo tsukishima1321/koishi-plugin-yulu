@@ -198,7 +198,7 @@ export function apply(ctx: Context, cfg: Config) {
         }
       }
       const tags = []
-      var group:string
+      var group: string
       if (session.guildId) {
         group = session.guildId
       } else {
@@ -221,8 +221,12 @@ export function apply(ctx: Context, cfg: Config) {
       } else {
         if (session.quote || session.elements[0].type == "quote") {
           try {
+            console.log(session.event.message.elements[0])
             var target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
           } catch {
+            return session.text('.no-mes-quoted')
+          }
+          if (Number.isNaN(target)) {
             return session.text('.no-mes-quoted')
           }
           var exist = await ctx.database.get('yulu', { id: target, })
@@ -254,9 +258,13 @@ export function apply(ctx: Context, cfg: Config) {
         return session.text('.no-tag-to-remove')
       } else {
         if (session.quote || session.elements[0].type == "quote") {
+          console.log(session.event.message.elements)
           try {
             var target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
           } catch {
+            return session.text('.no-mes-quoted')
+          }
+          if (Number.isNaN(target)) {
             return session.text('.no-mes-quoted')
           }
           var exist = await ctx.database.get('yulu', { id: target, })
@@ -358,6 +366,7 @@ export function apply(ctx: Context, cfg: Config) {
     for (var i = 0; i < session.elements.length; i++) {
       if (session.elements[i].type == "quote") {
         session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
+        console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
         break
       }
     }
@@ -412,17 +421,17 @@ export function apply(ctx: Context, cfg: Config) {
       }
       listeningQueue = listeningQueue.filter((item) => { item.user != "finished" })
     }
-    return next()
-    /*if (debugMode) {
+
+    if (debugMode) {
       try {
         console.log(JSON.stringify(session.event, null, "  "))
         //session.send("event:\n" + JSON.stringify(session.event))
         return next()
       } catch (error) {
+        console.log(error)
         return next()
       }
-    } else {
-      return next()
-    }*/
+    }
+    return next()
   })
 }
