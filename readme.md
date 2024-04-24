@@ -5,7 +5,7 @@
 
 适用于koishi的语录插件
 
-v0.1.x适用于red适配器
+v0.1.x适用于red适配器  
 v0.2.x适用于satori适配器
 
 
