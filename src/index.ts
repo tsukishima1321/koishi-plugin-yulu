@@ -1,4 +1,4 @@
-import {Session,Context,Schema } from 'koishi'
+import { Session, Context, Schema } from 'koishi'
 import { join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 let fs = require("fs");
@@ -98,7 +98,7 @@ function getRandomElements(arr: Array<any>, count: number): Array<any> {
   return Array.from(randomIndexes).map((index: number) => arr[index]);
 }
 
-export function apply(ctx:Context, cfg: Config) {
+export function apply(ctx: Context, cfg: Config) {
   ctx.model.extend('yulu', {
     id: 'unsigned',
     content: 'string',
@@ -129,6 +129,7 @@ export function apply(ctx:Context, cfg: Config) {
       }
       return session.text('.debug-status', [debugMode])
     })
+
   try {
     if (!fs.existsSync(cfg.dataDir)) {
       fs.mkdirSync(cfg.dataDir)
@@ -138,7 +139,7 @@ export function apply(ctx:Context, cfg: Config) {
     console.error("请检查文件权限")
   }
 
-  let listeningQueue: Array<{ stat:string, group: string, user: string, content: { time: Date, origin_message_id: string, group: string, tags: string } }> = []
+  let listeningQueue: Array<{ stat: string, group: string, user: string, content: { time: Date, origin_message_id: string, group: string, tags: string } }> = []
 
   function rmErrYulu(id: number, session: Session) {
     session.send(session.text('.download-failed', [id]))
@@ -169,11 +170,15 @@ export function apply(ctx:Context, cfg: Config) {
           if (!cfg.adminUsers.includes(session.event.user.id)) {
             return session.text('.no-permission-to-remove')
           } else {
-            let target:number
+            let target: number
             try {
               target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
             } catch {
-              return session.text('.no-mes-quoted')
+              try {
+                target = Number(session.quote.content.split('>').at(-1).split(':')[0])
+              } catch {
+                return session.text('.no-mes-quoted')
+              }
             }
             let exist = await ctx.database.get('yulu', { id: target, })
             if (exist.length > 0) {
@@ -191,11 +196,11 @@ export function apply(ctx:Context, cfg: Config) {
 
   let yuluAdd = ctx.command('yulu/yulu_add [...rest]').alias("添加语录")
     .action(async ({ session }, ...rest) => {
-      for (let i = 0; i < listeningQueue.length; i++) {
-        if (((!session.guildId && listeningQueue[i].group == session.event.user.id) || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user && listeningQueue[i].stat == "pending") {
+      for (let listen of listeningQueue) {
+        if (((!session.guildId && listen.group == session.event.user.id) || session.guildId == listen.group) && session.event.user.id == listen.user && listen.stat == "pending") {
           return session.text(".pic-in-process")
         }
-        if (((!session.guildId && listeningQueue[i].group == session.event.user.id) || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user) {
+        if (((!session.guildId && listen.group == session.event.user.id) || session.guildId == listen.group) && session.event.user.id == listen.user) {
           return session.text(".still-in-progress")
         }
       }
@@ -212,7 +217,7 @@ export function apply(ctx:Context, cfg: Config) {
       }
       const tag_str = JSON.stringify(tags)
       const cont = { time: new Date(), origin_message_id: session.event.message.id, group: group, tags: tag_str }
-      listeningQueue.push({ stat:"wait", group: group, user: session.event.user.id, content: cont })
+      listeningQueue.push({ stat: "wait", group: group, user: session.event.user.id, content: cont })
       return session.text('.wait-pic')
     })
 
@@ -222,12 +227,15 @@ export function apply(ctx:Context, cfg: Config) {
         return session.text('.no-tag-to-add')
       } else {
         if (session.quote || session.elements[0].type == "quote") {
-          let target:number
+          let target: number
           try {
-            console.log(session.event.message.elements[0])
             target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
           } catch {
-            return session.text('.no-mes-quoted')
+            try {
+              target = Number(session.quote.content.split('>').at(-1).split(':')[0])
+            } catch {
+              return session.text('.no-mes-quoted')
+            }
           }
           if (Number.isNaN(target)) {
             return session.text('.no-mes-quoted')
@@ -261,12 +269,16 @@ export function apply(ctx:Context, cfg: Config) {
         return session.text('.no-tag-to-remove')
       } else {
         if (session.quote || session.elements[0].type == "quote") {
-          console.log(session.event.message.elements)
-          let target:number
+          //console.log(session.event.message.elements)
+          let target: number
           try {
             target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
           } catch {
-            return session.text('.no-mes-quoted')
+            try {
+              target = Number(session.quote.content.split('>').at(-1).split(':')[0])
+            } catch {
+              return session.text('.no-mes-quoted')
+            }
           }
           if (Number.isNaN(target)) {
             return session.text('.no-mes-quoted')
@@ -370,7 +382,6 @@ export function apply(ctx:Context, cfg: Config) {
     for (let i = 0; i < session.elements.length; i++) {
       if (session.elements[i].type == "quote") {
         session.execute(session.content.slice(session.content.lastIndexOf('>') + 1))
-        console.log(session.content.slice(session.content.lastIndexOf('>') + 1))
         break
       }
     }
@@ -379,11 +390,11 @@ export function apply(ctx:Context, cfg: Config) {
         console.log(session.event)
         console.log(session.guildId, session.event.user.id, session.event.message.elements[0].type)
       }
-      for (let i = 0; i < listeningQueue.length; i++) {
-        if (((!session.guildId && listeningQueue[i].group == session.event.user.id) || session.guildId == listeningQueue[i].group) && session.event.user.id == listeningQueue[i].user && listeningQueue[i].stat == "wait") {
+      for (let listen of listeningQueue) {
+        if (((!session.guildId && listen.group == session.event.user.id) || session.guildId == listen.group) && session.event.user.id == listen.user && listen.stat == "wait") {
           if (session.event.message.elements[0].type == "img") {
-            listeningQueue[i].stat = "pending"
-            const item = listeningQueue[i].content;
+            listen.stat = "pending"
+            const item = listen.content;
             const src = session.event.message.elements[0].attrs.src
             const res = await ctx.database.create('yulu', { content: src, time: item.time, origin_message_id: item.origin_message_id, tags: item.tags, group: item.group })
             await getfileByUrl(src, String(res.id), cfg.dataDir)//下载图片到本地路径
@@ -415,10 +426,10 @@ export function apply(ctx:Context, cfg: Config) {
             //OCR
             await ctx.database.set('yulu', res.id, { origin_message_id: session.event.message.id })
             session.send(session.text("add-succeed", [res.id]))
-            listeningQueue[i].stat = "finished";
+            listen.stat = "finished";
             break
           } else if (session.event.message.content == "取消") {
-            listeningQueue[i].stat = "finished";
+            listen.stat = "finished";
             break
           }
         }
