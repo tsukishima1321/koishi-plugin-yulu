@@ -1,6 +1,7 @@
 import { Session, Context, Schema } from 'koishi'
 import { join, resolve } from 'path'
 import { pathToFileURL } from 'url'
+import { } from '@koishijs/cache'
 let fs = require("fs");
 let request = require("request");
 
@@ -42,17 +43,19 @@ export interface Config {
   dataDir: string
   adminUsers: string[]
   pageSize: number
+  lessRepetition: number
 }
 
 export const inject = {
-  required: ['database'],
+  required: ['database', 'cache'],
   optional: [],
 }
 
 export const Config: Schema<Config> = Schema.object({
   adminUsers: Schema.array(Schema.string()).default(['2854196310']),
   dataDir: Schema.string().default("./data/yulu"),
-  pageSize: Schema.number().default(10)
+  pageSize: Schema.number().default(10),
+  lessRepetition: Schema.number().default(80).max(100).min(0),
 }).i18n({
   'zh-CN': require('./locales/zh-CN'),
 })
@@ -70,6 +73,12 @@ export interface Yulu {
   origin_message_id: string
   tags: string
   group: string
+}
+
+declare module '@koishijs/cache' {
+  interface Tables {
+    [key: `yulu_recent_send_${string}`]: boolean
+  }
 }
 
 function sendYulu(y: Yulu, p: string, t: boolean): string {
@@ -350,12 +359,23 @@ export function apply(ctx: Context, cfg: Config) {
           return session.text('.no-result')
         }
         if (!options.list) {
-          const find = finds[Math.floor(Math.random() * finds.length)]
+          let find: Yulu
+          for (let i = 0; i < 10; i++) {
+            find = finds[Math.floor(Math.random() * finds.length)]
+            if (await ctx.cache.get(`yulu_recent_send_${session.guildId}`, String(find.id))) {
+              if (Math.random() * 100 > cfg.lessRepetition) {
+                break
+              }
+            } else {
+              break
+            }
+          }
           if (!await checkFile(join(cfg.dataDir, String(find.id)))) {//语录文件下载失败
             rmErrYulu(find.id, session)
             return
           }
           const res = sendYulu(find, cfg.dataDir, options.tag)
+          ctx.cache.set(`yulu_recent_send_${session.guildId}`, String(find.id), true, 1000 * 500)
           return res
         } else {
           let page: number

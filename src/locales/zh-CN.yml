@@ -7,6 +7,9 @@ dataDir:
 pageSize:
   $description: list指令的分页大小
 
+lessRepetition:
+  $description: 减少连续查询到同一语录的概率，越大越不可能连续查询到同一语录
+
 add-succeed: "{0}:添加成功"
 
 commands:
