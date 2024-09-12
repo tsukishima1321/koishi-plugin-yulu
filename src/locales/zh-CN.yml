@@ -13,16 +13,16 @@ lessRepetition:
 add-succeed: "{0}:添加成功"
 
 commands:
-  yulu_debug:
+  yulu-debug:
     messages:
         debug-on: 已开启调试模式
         debug-off: 已关闭调试模式
         debug-status: 当前的调试状态为{0}
         no-permission: 权限不足
-  yulu_test:
+  yulu-test:
     messages:
         download-failed: 文件{0}存在错误，正在删除语录
-  yulu_add:
+  yulu-add:
     description: 添加一条语录
     usage: |-
       准备添加语录，可添加多个tag，用空格隔开。之后由该指令发送者发送的下一张图片将作为语录图片
@@ -35,7 +35,7 @@ commands:
         wait-pic: 请上传语录图片：
         pic-in-process: 正在处理图片中，请稍候
         still-in-progress: 您有正在进行的上传会话，发送“取消”终止
-  yulu_tag_add:
+  yulu-tag-add:
     description: 为一条语录增加tag
     usage: |-
       为被引用的语录添加tag，多个tag用空格隔开，提示成功添加的tag数量
@@ -44,7 +44,7 @@ commands:
         add-succeed: 成功添加{0}个tag
         not-found: 没有找到id为{0}的语录
         no-mes-quoted: 请引用要添加tag的语录
-  yulu_tag_remove:
+  yulu-tag-remove:
     description: 为一条语录移除tag
     usage: |-
       为被引用的语录移除tag，多个tag用空格隔开，提示成功移除的tag数量
@@ -53,7 +53,7 @@ commands:
         remove-succeed: 成功移除{0}个tag
         no-mes-quoted: 请引用要移除tag的语录
         not-found: 没有找到id为{0}的语录
-  yulu_remove:
+  yulu-remove:
     description: 移除被引用的语录
     usage: 移除被引用的语录（需要权限，添加平台用户id到adminUsers中获得）
     messages:
@@ -61,7 +61,7 @@ commands:
         no-mes-quoted: 请引用要移除的语录
         not-found: 没有找到id为{0}的语录
         remove-succeed: 成功移除语录
-  yulu_select:
+  yulu-select:
     description: 随机获取一条语录
     usage: |-
       随机获取一条语录，参数列表作为要查找的tag
