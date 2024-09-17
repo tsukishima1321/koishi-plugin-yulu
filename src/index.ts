@@ -184,7 +184,10 @@ export function apply(ctx: Context, cfg: Config) {
               target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
             } catch {
               try {
-                target = Number(session.quote.content.split('>').at(-1).split(':')[0])
+                target = Number(session.quote.content.match(/>(\d+):/)[1])
+                if (Number.isNaN(target)) {
+                  throw new Error()
+                }
               } catch {
                 return session.text('.no-mes-quoted')
               }
@@ -241,7 +244,12 @@ export function apply(ctx: Context, cfg: Config) {
             target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
           } catch {
             try {
-              target = Number(session.quote.content.split('>').at(-1).split(':')[0])
+              //old: target = Number(session.quote.content.split('>').at(-1).split(':')[0])
+              //use regex to get the id (an int between '>' and ':')
+              target = Number(session.quote.content.match(/>(\d+):/)[1])
+              if (Number.isNaN(target)) {
+                throw new Error()
+              }
             } catch {
               return session.text('.no-mes-quoted')
             }
@@ -284,7 +292,10 @@ export function apply(ctx: Context, cfg: Config) {
             target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
           } catch {
             try {
-              target = Number(session.quote.content.split('>').at(-1).split(':')[0])
+              target = Number(session.quote.content.match(/>(\d+):/)[1])
+              if (Number.isNaN(target)) {
+                throw new Error()
+              }
             } catch {
               return session.text('.no-mes-quoted')
             }
@@ -406,10 +417,6 @@ export function apply(ctx: Context, cfg: Config) {
       }
     }
     if (listeningQueue.length > 0) {
-      if (debugMode) {
-        console.log(session.event)
-        console.log(session.guildId, session.event.user.id, session.event.message.elements[0].type)
-      }
       for (let listen of listeningQueue) {
         if (((!session.guildId && listen.group == session.event.user.id) || session.guildId == listen.group) && session.event.user.id == listen.user && listen.stat == "wait") {
           if (session.event.message.elements[0].type == "img") {
