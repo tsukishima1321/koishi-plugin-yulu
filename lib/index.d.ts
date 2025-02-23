@@ -2,8 +2,8 @@ import { Context, Schema } from 'koishi';
 export declare const name = "yulu";
 export interface Config {
     dataDir: string;
-    adminUsers: string[];
     pageSize: number;
+    maxImageSize: number;
     lessRepetition: number;
 }
 export declare const inject: {

@@ -1,19 +1,19 @@
-import { Session, Context, Schema } from 'koishi'
+import { Session, Context, Schema, Logger } from 'koishi'
 import { join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import { } from '@koishijs/cache'
-let fs = require("fs");
-let request = require("request");
+import * as fs from 'fs'
+const request = require('request')
 
 async function getfileByUrl(url: string, fileName: string, dir: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
     let stream = fs.createWriteStream(join(dir, fileName));
     request(url).pipe(stream).on("close", (err) => {
       if (err) {
-        console.error(err);
+        logger.error(err);
         reject(err)
       } else {
-        console.log("语录" + fileName + "下载完毕");
+        logger.info("语录" + fileName + "下载完毕");
         resolve(true)
       }
     });
@@ -24,7 +24,7 @@ async function checkFile(path: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
     fs.stat(path, (err, stats) => {
       if (err) {
-        console.error(err)
+        logger.error(err)
         reject(err)
       } else {
         if (stats.size < 100) {
@@ -37,12 +37,14 @@ async function checkFile(path: string): Promise<boolean> {
   })
 }
 
+const logger = new Logger('yulu')
+
 export const name = 'yulu'
 
 export interface Config {
   dataDir: string
-  adminUsers: string[]
   pageSize: number
+  maxImageSize: number
   lessRepetition: number
 }
 
@@ -52,10 +54,10 @@ export const inject = {
 }
 
 export const Config: Schema<Config> = Schema.object({
-  adminUsers: Schema.array(Schema.string()).default(['2854196310']),
   dataDir: Schema.string().default("./data/yulu"),
   pageSize: Schema.number().default(10),
   lessRepetition: Schema.number().default(80).max(100).min(0),
+  maxImageSize: Schema.number().default(1000),
 }).i18n({
   'zh-CN': require('./locales/zh-CN'),
 })
@@ -121,31 +123,13 @@ export function apply(ctx: Context, cfg: Config) {
 
   let debugMode = false
 
-  ctx.command('yulu/yulu_debug')
-    .option('on', '-d')
-    .option('off', '-o')
-    .action(({ options, session }) => {
-      if (!cfg.adminUsers.includes(session.event.user.id)) {
-        return session.text('.no-permission')
-      }
-      if (options.on == true) {
-        debugMode = true
-        return session.text('.debug-on')
-      }
-      if (options.off == true) {
-        debugMode = false
-        return session.text('.debug-off')
-      }
-      return session.text('.debug-status', [debugMode])
-    })
-
   try {
     if (!fs.existsSync(cfg.dataDir)) {
       fs.mkdirSync(cfg.dataDir)
     }
   } catch (err) {
-    console.error(err)
-    console.error("请检查文件权限")
+    logger.error(err)
+    logger.error("请检查文件权限")
   }
 
   let listeningQueue: Array<{ stat: string, group: string, user: string, content: { time: Date, origin_message_id: string, group: string, tags: string } }> = []
@@ -153,7 +137,7 @@ export function apply(ctx: Context, cfg: Config) {
   function rmErrYulu(id: number, session: Session) {
     session.send(session.text('.download-failed', [id]))
     session.execute(`yulu_select -i ${id} -l`)
-    console.warn(`语录${id}文件异常，从数据库移除`)
+    logger.warn(`语录${id}文件异常，从数据库移除`)
     setTimeout(() => {
       ctx.database.remove('yulu', [id])
       session.send(session.text('.delete-finish', [id]))
@@ -164,33 +148,25 @@ export function apply(ctx: Context, cfg: Config) {
     .option('id', '-i <id:number>')
     .action(async ({ session, options }) => {
       if (options.id) {
-        if (!cfg.adminUsers.includes(session.event.user.id)) {
-          return session.text('.no-permission-to-remove')
-        } else {
-          const finds = await ctx.database.get('yulu', options.id)
-          if (finds.length == 0) {
-            return session.text('.no-result')
-          }
-          ctx.database.remove('yulu', [options.id])
-          return session.text('.remove-succeed')
+        const finds = await ctx.database.get('yulu', options.id)
+        if (finds.length == 0) {
+          return session.text('.no-result')
         }
+        ctx.database.remove('yulu', [options.id])
+        return session.text('.remove-succeed')
       } else {
         if (session.quote || session.elements[0].type == "quote") {
-          if (!cfg.adminUsers.includes(session.event.user.id)) {
-            return session.text('.no-permission-to-remove')
-          } else {
-            let target: number
+          let target: number
+          try {
+            target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
+          } catch {
             try {
-              target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
-            } catch {
-              try {
-                target = Number(session.quote.content.match(/>(\d+):/)[1])
-                if (Number.isNaN(target)) {
-                  throw new Error()
-                }
-              } catch {
-                return session.text('.no-mes-quoted')
+              target = Number(session.quote.content.match(/>(\d+):/)[1])
+              if (Number.isNaN(target)) {
+                throw new Error()
               }
+            } catch {
+              return session.text('.no-mes-quoted')
             }
             let exist = await ctx.database.get('yulu', { id: target, })
             if (exist.length > 0) {
@@ -286,7 +262,7 @@ export function apply(ctx: Context, cfg: Config) {
         return session.text('.no-tag-to-remove')
       } else {
         if (session.quote || session.elements[0].type == "quote") {
-          //console.log(session.event.message.elements)
+          //logger.info(session.event.message.elements)
           let target: number
           try {
             target = Number(session.event.message.elements[0].children[1].attrs.content.split(':')[0])
@@ -426,7 +402,7 @@ export function apply(ctx: Context, cfg: Config) {
             const res = await ctx.database.create('yulu', { content: src, time: item.time, origin_message_id: item.origin_message_id, tags: item.tags, group: item.group })
             await getfileByUrl(src, String(res.id), cfg.dataDir)//下载图片到本地路径
             if (!await checkFile(join(cfg.dataDir, String(res.id)))) {//语录文件下载失败
-              console.warn(`语录${src}下载失败`)
+              logger.warn(`语录${src}下载失败`)
               async function retry(ms: number) {
                 return new Promise((resolve, reject) => {
                   setTimeout(async () => {
@@ -437,18 +413,28 @@ export function apply(ctx: Context, cfg: Config) {
               }
               let flag = false;
               for (let i = 0; i < 10; i++) {
-                console.log(`下载失败，第${i + 1}次重试`)
+                logger.info(`下载失败，第${i + 1}次重试`)
                 if (await retry(2000)) {
                   flag = true
-                  console.log(`下载成功`)
+                  logger.info(`下载成功`)
                   break
                 }
               }
               if (!flag) {
-                console.log(`重试次数达上限`)
+                logger.info(`重试次数达上限`)
                 rmErrYulu(res.id, session)
                 return
               }
+            }
+            const file = join(cfg.dataDir, String(res.id))
+            const stats = fs.statSync
+            if (stats(file).size > cfg.maxImageSize * 1024) {
+              //delete file
+              fs.unlinkSync(file)
+              logger.warn(`语录${res.id}文件过大，从数据库移除`)
+              session.send(session.text('file-too-large', [res.id]))
+              ctx.database.remove('yulu', [res.id])
+              return
             }
             //OCR
             await ctx.database.set('yulu', res.id, { origin_message_id: session.event.message.id })
@@ -466,11 +452,11 @@ export function apply(ctx: Context, cfg: Config) {
 
     if (debugMode) {
       try {
-        console.log(JSON.stringify(session.event, null, "  "))
+        logger.info(JSON.stringify(session.event, null, "  "))
         //session.send("event:\n" + JSON.stringify(session.event))
         return next()
       } catch (error) {
-        console.log(error)
+        logger.info(error)
         return next()
       }
     }
