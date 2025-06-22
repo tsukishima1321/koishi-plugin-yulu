@@ -423,7 +423,8 @@ export function apply(ctx: Context, cfg: Config) {
               if (!flag) {
                 logger.info(`重试次数达上限`)
                 rmErrYulu(res.id, session)
-                return
+                listen.stat = "finished";
+                break
               }
             }
             const file = join(cfg.dataDir, String(res.id))
@@ -434,7 +435,8 @@ export function apply(ctx: Context, cfg: Config) {
               logger.warn(`语录${res.id}文件过大，从数据库移除`)
               session.send(session.text('file-too-large', [res.id]))
               ctx.database.remove('yulu', [res.id])
-              return
+              listen.stat = "finished";
+              break
             }
             //OCR
             await ctx.database.set('yulu', res.id, { origin_message_id: session.event.message.id })
