@@ -1,4 +1,4 @@
-import { Session, Context, Schema, Logger } from 'koishi'
+import { Session, Context, Schema, Logger, h } from 'koishi'
 import { join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import { } from '@koishijs/cache'
@@ -89,8 +89,9 @@ function sendYulu(y: Yulu, p: string, t: boolean): string {
     res = res + y.tags
   }
   if (y.content.slice(0, 4) == "http" || y.content == "img") {
-    const href = pathToFileURL(join(resolve(p), String(y.id))).href
-    res = res + `<img src="${href}">`
+    //const href = pathToFileURL(join(resolve(p), String(y.id))).href
+    const buffer = fs.readFileSync(join(resolve(p), String(y.id)))
+    res = res + h.image(buffer, 'image/jpg')
   } else {
     res = res + y.content
   }
