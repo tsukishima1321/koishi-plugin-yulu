@@ -3,20 +3,29 @@ import { join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import { } from '@koishijs/cache'
 import * as fs from 'fs'
-const request = require('request')
 
 async function getfileByUrl(url: string, fileName: string, dir: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    let stream = fs.createWriteStream(join(dir, fileName));
-    request(url).pipe(stream).on("close", (err) => {
+    fetch(url).then(async (res) => {
+      if (!res.ok) {
+      const err = new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`)
+      logger.error(err)
+      return reject(err)
+      }
+      const buffer = Buffer.from(await res.arrayBuffer())
+      fs.writeFile(join(dir, fileName), buffer, (err) => {
       if (err) {
-        logger.error(err);
+        logger.error(err)
         reject(err)
       } else {
-        logger.info("语录" + fileName + "下载完毕");
+        logger.info("语录" + fileName + "下载完毕")
         resolve(true)
       }
-    });
+      })
+    }).catch((err) => {
+      logger.error(err)
+      reject(err)
+    })
   })
 }
 
@@ -439,7 +448,6 @@ export function apply(ctx: Context, cfg: Config) {
               listen.stat = "finished";
               break
             }
-            //OCR
             await ctx.database.set('yulu', res.id, { origin_message_id: session.event.message.id })
             session.send(session.text("add-succeed", [res.id]))
             listen.stat = "finished";
